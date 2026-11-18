@@ -625,39 +625,20 @@ impl Ser<'_> {
 				self.push_writef32(from.clone().nindex("Z").into());
 			}
 			Ty::Vector(x_ty, y_ty, z_ty) => {
-				match **x_ty {
-					Ty::Num(numty, range) => {
-						if self.checks {
-							self.push_range_check(from_expr.clone(), range);
-						}
+				let components = [("x", Some(x_ty)), ("y", Some(y_ty)), ("z", z_ty.as_ref())];
 
-						self.push_writenumty(from.clone().nindex("x").into(), numty)
-					}
-					_ => unreachable!(),
-				};
-
-				match **y_ty {
-					Ty::Num(numty, range) => {
-						if self.checks {
-							self.push_range_check(from_expr.clone(), range);
-						}
-
-						self.push_writenumty(from.clone().nindex("y").into(), numty)
-					}
-					_ => unreachable!(),
-				};
-
-				if let Some(z_ty) = z_ty {
-					match **z_ty {
-						Ty::Num(numty, range) => {
-							if self.checks {
-								self.push_range_check(from_expr.clone(), range);
-							}
-
-							self.push_writenumty(from.clone().nindex("z").into(), numty)
-						}
-						_ => unreachable!(),
+				for (axis, component) in components {
+					let Some(component) = component else { continue };
+					let Ty::Num(numty, range) = **component else {
+						unreachable!("vector components are always numbers")
 					};
+					let component_expr: Expr = from.clone().nindex(axis).into();
+
+					if self.checks {
+						self.push_range_check(component_expr.clone(), range);
+					}
+
+					self.push_writenumty(component_expr, numty);
 				}
 			}
 

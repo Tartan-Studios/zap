@@ -557,42 +557,31 @@ impl Des<'_> {
 			),
 			Ty::Vector3 => self.push_assign(into, self.readvector3()),
 			Ty::Vector(x_ty, y_ty, z_ty) => {
-				let x_numty = match **x_ty {
-					Ty::Num(numty, range) => {
-						if self.checks {
-							self.push_range_check(into_expr.clone(), range);
-						}
+				let mut components = vec![];
 
-						numty
+				for component in [Some(x_ty), Some(y_ty), z_ty.as_ref()].into_iter().flatten() {
+					let Ty::Num(numty, range) = **component else {
+						unreachable!("vector components are always numbers")
+					};
+					let (name, expr) = self.add_occurrence("component");
+
+					self.push_local(name, Some(self.readnumty(numty)));
+
+					if self.checks {
+						self.push_range_check(expr.clone(), range);
 					}
-					_ => unreachable!(),
-				};
-				let y_numty = match **y_ty {
-					Ty::Num(numty, range) => {
-						if self.checks {
-							self.push_range_check(into_expr.clone(), range);
-						}
 
-						numty
-					}
-					_ => unreachable!(),
-				};
-				let z_numty = if let Some(z_ty) = z_ty {
-					match **z_ty {
-						Ty::Num(numty, range) => {
-							if self.checks {
-								self.push_range_check(into_expr.clone(), range);
-							}
+					components.push(expr);
+				}
 
-							Some(numty)
-						}
-						_ => unreachable!(),
-					}
-				} else {
-					None
-				};
+				let mut components = components.into_iter();
+				let x = components.next().expect("a vector has an x component");
+				let y = components.next().expect("a vector has a y component");
 
-				self.push_assign(into, self.readvector(x_numty, y_numty, z_numty));
+				self.push_assign(
+					into,
+					Expr::Vector(Box::new(x), Box::new(y), components.next().map(Box::new)),
+				);
 			}
 
 			Ty::AlignedCFrame => {
