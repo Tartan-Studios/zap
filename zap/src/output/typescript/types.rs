@@ -65,7 +65,7 @@ impl<'src> TypesOutput<'src> {
 				TypeScriptEnumType::StringLiteral => self.push(&format!(
 					"type {} = {};\n",
 					tydecl.name,
-					&variants
+					variants
 						.iter()
 						.map(|v| format!("\"{v}\""))
 						.collect::<Vec<_>>()
