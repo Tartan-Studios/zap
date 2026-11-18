@@ -1,0 +1,13 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/net/files/snake_case.zap
+---
+round trip button_pressed (Client, Reliable, ManyAsync): 12/12
+round trip score_changed (Server, Reliable, ManyAsync): 12/12
+burst of 20 Server events in one frame: all arrived in order
+burst of 20 Client events in one frame: all arrived in order
+function ask (Async): 12/12
+hostile button_pressed: nothing to break
+hostile function ask: refused 8 of 8
+fuzz: 300 messages, 90 reached game code and all matched their types, 210 refused

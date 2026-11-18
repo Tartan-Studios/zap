@@ -1,0 +1,15 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/files/namespaces.zap
+---
+round trip Event1 (Client, Reliable, SingleSync): 12/12
+round trip Event2 (Client, Reliable, SingleSync): 12/12
+round trip NS.Event1 (Client, Reliable, SingleSync): 12/12
+round trip NS.Event3 (Client, Reliable, SingleSync): 12/12
+burst of 20 Client events in one frame: all arrived in order
+hostile Event1: nothing to break
+hostile Event2: nothing to break
+hostile NS.Event1: nothing to break
+hostile NS.Event3: nothing to break
+fuzz: 300 messages, 90 reached game code and all matched their types, 210 refused

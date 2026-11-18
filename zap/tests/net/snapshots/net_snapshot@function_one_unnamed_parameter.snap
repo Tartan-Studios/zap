@@ -1,0 +1,8 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/files/function_one_unnamed_parameter.zap
+---
+function OneUnnamedParameter (Async): 12/12
+hostile function OneUnnamedParameter: nothing to break
+fuzz: 300 messages, 2 reached game code and all matched their types, 298 refused

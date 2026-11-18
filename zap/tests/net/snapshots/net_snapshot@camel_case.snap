@@ -1,0 +1,9 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/net/files/camel_case.zap
+---
+round trip buttonPressed (Client, Reliable, Polling): 12/12
+round trip scoreChanged (Server, OrderedUnreliable, SingleSync): 12/12
+hostile buttonPressed: nothing to break
+fuzz: 300 messages, 102 reached game code and all matched their types, 198 refused
