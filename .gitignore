@@ -17,3 +17,4 @@ zap/package
 
 # Mac Moment
 .DS_Store
+.luau-tools/
