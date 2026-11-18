@@ -14,6 +14,13 @@ use crate::{
 
 use super::Output;
 
+fn event_writer(ev: &EvDecl) -> String {
+	match ev.evty {
+		EvType::Reliable => format!("reliable_writers[{}]", ev.id + 1),
+		EvType::Unreliable(_) => format!("unreliable_writers[{}]", ev.id + 1),
+	}
+}
+
 struct ServerOutput<'src> {
 	config: &'src Config<'src>,
 	tabs: u32,
@@ -818,12 +825,53 @@ impl<'src> ServerOutput<'src> {
 		));
 	}
 
+	fn push_event_writer(&mut self, ev: &EvDecl) {
+		let parameters = &ev.data;
+		let value = self.config.casing.with("Value", "value", "value");
+
+		self.push_indent();
+		self.push(&format!("{} = function(", event_writer(ev)));
+		self.push_value_parameters(parameters);
+		self.push(")\n");
+		self.indent();
+
+		self.push_write_evdecl_event_id(ev);
+
+		if !parameters.is_empty() {
+			let statements = &ser::generate(
+				parameters.iter().map(|parameter| &parameter.ty),
+				&get_named_values(value, parameters),
+				self.config.write_checks,
+				&mut self.var_occurrences,
+				self.config.typescript_enum,
+			);
+			self.push_stmts(statements);
+		}
+
+		if ev.evty == EvType::Unreliable(true) {
+			self.push_line("return order_id_apos");
+		}
+
+		self.dedent();
+		self.push_line("end");
+	}
+
+	fn push_write_event_call(&mut self, ev: &EvDecl) {
+		let value = self.config.casing.with("Value", "value", "value");
+		let values = get_named_values(value, &ev.data).join(", ");
+
+		if ev.evty == EvType::Unreliable(true) {
+			self.push_line(&format!("local order_id_apos = {}({values})", event_writer(ev)));
+		} else {
+			self.push_line(&format!("{}({values})", event_writer(ev)));
+		}
+	}
+
 	fn push_return_fire(&mut self, ev: &EvDecl) {
 		let parameters = &ev.data;
 
 		let fire = self.config.casing.with("Fire", "fire", "fire");
 		let player = self.config.casing.with("Player", "player", "player");
-		let value = self.config.casing.with("Value", "value", "value");
 
 		self.push_indent();
 		self.push(&format!("{fire} = function({player}: Player"));
@@ -845,18 +893,7 @@ impl<'src> ServerOutput<'src> {
 			EvType::Unreliable(_) => self.push_line("load_empty()"),
 		}
 
-		self.push_write_evdecl_event_id(ev);
-
-		if !parameters.is_empty() {
-			let statements = &ser::generate(
-				parameters.iter().map(|parameter| &parameter.ty),
-				&get_named_values(value, parameters),
-				self.config.write_checks,
-				&mut self.var_occurrences,
-				self.config.typescript_enum,
-			);
-			self.push_stmts(statements);
-		}
+		self.push_write_event_call(ev);
 
 		match ev.evty {
 			EvType::Reliable => self.push_line(&format!("player_map[{player}] = save()")),
@@ -886,7 +923,6 @@ impl<'src> ServerOutput<'src> {
 		let parameters = &ev.data;
 
 		let fire_all = self.config.casing.with("FireAll", "fireAll", "fire_all");
-		let value = self.config.casing.with("Value", "value", "value");
 
 		self.push_indent();
 		self.push(&format!("{fire_all} = function("));
@@ -904,18 +940,7 @@ impl<'src> ServerOutput<'src> {
 
 		self.push_line("load_empty()");
 
-		self.push_write_evdecl_event_id(ev);
-
-		if !parameters.is_empty() {
-			let statements = &ser::generate(
-				parameters.iter().map(|parameter| &parameter.ty),
-				&get_named_values(value, parameters),
-				self.config.write_checks,
-				&mut self.var_occurrences,
-				self.config.typescript_enum,
-			);
-			self.push_stmts(statements);
-		}
+		self.push_write_event_call(ev);
 
 		match ev.evty {
 			EvType::Reliable => {
@@ -967,7 +992,6 @@ impl<'src> ServerOutput<'src> {
 
 		let fire_except = self.config.casing.with("FireExcept", "fireExcept", "fire_except");
 		let except = self.config.casing.with("Except", "except", "except");
-		let value = self.config.casing.with("Value", "value", "value");
 
 		self.push_indent();
 		self.push(&format!("{fire_except} = function({except}: Player"));
@@ -986,18 +1010,7 @@ impl<'src> ServerOutput<'src> {
 
 		self.push_line("load_empty()");
 
-		self.push_write_evdecl_event_id(ev);
-
-		if !parameters.is_empty() {
-			let statements = &ser::generate(
-				parameters.iter().map(|paramater| &paramater.ty),
-				&get_named_values(value, parameters),
-				self.config.write_checks,
-				&mut self.var_occurrences,
-				self.config.typescript_enum,
-			);
-			self.push_stmts(statements);
-		}
+		self.push_write_event_call(ev);
 
 		match ev.evty {
 			EvType::Reliable => {
@@ -1054,7 +1067,6 @@ impl<'src> ServerOutput<'src> {
 
 		let fire_list = self.config.casing.with("FireList", "fireList", "fire_list");
 		let list = self.config.casing.with("List", "list", "list");
-		let value = self.config.casing.with("Value", "value", "value");
 
 		self.push_indent();
 		self.push(&format!("{fire_list} = function({list}: {{ [unknown]: Player }}"));
@@ -1073,18 +1085,7 @@ impl<'src> ServerOutput<'src> {
 
 		self.push_line("load_empty()");
 
-		self.push_write_evdecl_event_id(ev);
-
-		if !parameters.is_empty() {
-			let statements = &ser::generate(
-				parameters.iter().map(|parameter| &parameter.ty),
-				&get_named_values(value, parameters),
-				self.config.write_checks,
-				&mut self.var_occurrences,
-				self.config.typescript_enum,
-			);
-			self.push_stmts(statements);
-		}
+		self.push_write_event_call(ev);
 
 		match ev.evty {
 			EvType::Reliable => {
@@ -1133,7 +1134,6 @@ impl<'src> ServerOutput<'src> {
 
 		let fire_set = self.config.casing.with("FireSet", "fireSet", "fire_set");
 		let set = self.config.casing.with("Set", "set", "set");
-		let value = self.config.casing.with("Value", "value", "value");
 
 		self.push_indent();
 		self.push(&format!("{fire_set} = function({set}: {{ [Player]: any }}"));
@@ -1152,18 +1152,7 @@ impl<'src> ServerOutput<'src> {
 
 		self.push_line("load_empty()");
 
-		self.push_write_evdecl_event_id(ev);
-
-		if !parameters.is_empty() {
-			let statements = &ser::generate(
-				parameters.iter().map(|parameter| &parameter.ty),
-				&get_named_values(value, parameters),
-				self.config.write_checks,
-				&mut self.var_occurrences,
-				self.config.typescript_enum,
-			);
-			self.push_stmts(statements);
-		}
+		self.push_write_event_call(ev);
 
 		match ev.evty {
 			EvType::Reliable => {
@@ -1446,6 +1435,23 @@ impl<'src> ServerOutput<'src> {
 		self.push_line("table.freeze(polling_queues_unreliable)\n");
 	}
 
+	fn push_event_writers(&mut self) {
+		self.push_line("local reliable_writers = {}");
+		self.push_line("local unreliable_writers = {}");
+
+		self.config.traverse_namespaces(
+			self,
+			|_, _| {},
+			|this, _, entry| {
+				if let NamespaceEntry::EvDecl(evdecl) = entry
+					&& evdecl.from == EvSource::Server
+				{
+					this.push_event_writer(evdecl);
+				}
+			},
+		);
+	}
+
 	fn push_return(&mut self) {
 		self.push_line("local returns = {");
 		self.indent();
@@ -1654,6 +1660,8 @@ impl<'src> ServerOutput<'src> {
 		self.push_unreliable();
 
 		self.push_polling();
+
+		self.push_event_writers();
 
 		self.push_return();
 
