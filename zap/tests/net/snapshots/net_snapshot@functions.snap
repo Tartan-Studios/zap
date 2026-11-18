@@ -1,0 +1,14 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/net/files/functions.zap
+---
+function Nothing (Async): 12/12
+function Order (Async): 12/12
+function Quote (Sync): 12/12
+function Shop.Basket (Async): 12/12
+hostile function Nothing: nothing to break
+hostile function Order: refused 8 of 8
+hostile function Quote: refused 8 of 8
+hostile function Shop.Basket: refused 8 of 8
+fuzz: 300 messages, 3 reached game code and all matched their types, 297 refused

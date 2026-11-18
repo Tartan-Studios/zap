@@ -1,0 +1,9 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/files/recursive.zap
+---
+round trip Complex (Client, Reliable, SingleSync): 12/12
+burst of 20 Client events in one frame: all arrived in order
+hostile Complex: nothing to break
+fuzz: 300 messages, 92 reached game code and all matched their types, 208 refused

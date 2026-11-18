@@ -1,0 +1,6 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/files/polling.zap
+---
+round trip polling (Server, Reliable, Polling): 12/12

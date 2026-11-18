@@ -1,0 +1,7 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/files/tuples.zap
+---
+round trip MyEvent (Server, Reliable, ManyAsync): 12/12
+burst of 20 Server events in one frame: all arrived in order

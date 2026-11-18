@@ -1,0 +1,9 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/files/typescript_enum.zap
+---
+round trip Event (Client, Reliable, SingleSync): 12/12
+burst of 20 Client events in one frame: all arrived in order
+hostile Event: nothing to break
+fuzz: 300 messages, 95 reached game code and all matched their types, 205 refused

@@ -1,0 +1,16 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/files/include_profile_labels.zap
+---
+round trip Event1 (Client, Reliable, SingleSync): 12/12
+round trip Event2 (Server, Reliable, ManySync): 12/12
+round trip Namespace.Event1 (Client, Unreliable, SingleAsync): 12/12
+round trip Namespace.Event2 (Server, Unreliable, ManyAsync): 12/12
+burst of 20 Server events in one frame: all arrived in order
+burst of 20 Client events in one frame: all arrived in order
+function Function (Async): 12/12
+hostile Event1: nothing to break
+hostile Namespace.Event1: nothing to break
+hostile function Function: nothing to break
+fuzz: 300 messages, 190 reached game code and all matched their types, 110 refused

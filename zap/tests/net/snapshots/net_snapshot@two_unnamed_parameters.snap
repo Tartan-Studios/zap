@@ -1,0 +1,7 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/files/two_unnamed_parameters.zap
+---
+round trip TwoUnnamedParameters (Server, Reliable, ManyAsync): 12/12
+burst of 20 Server events in one frame: all arrived in order
