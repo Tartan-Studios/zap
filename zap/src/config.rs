@@ -304,6 +304,7 @@ impl Display for TyDecl<'_> {
 #[derive(Debug, Clone)]
 pub enum Ty<'src> {
 	Num(NumTy, Range),
+	/// A string's declared length, in characters when it is UTF-8 and in bytes otherwise.
 	Str(bool, Range),
 	Buf(Range),
 	Vector(Box<Ty<'src>>, Box<Ty<'src>>, Option<Box<Ty<'src>>>),
@@ -359,6 +360,7 @@ impl<'src> Ty<'src> {
 				if !utf8 && let Some(exact) = len.exact() {
 					(exact as usize, Some(exact as usize))
 				} else {
+					let len = string_bytes(*utf8, *len);
 					let (len_numty, ..) = len.numty();
 
 					(
@@ -693,6 +695,12 @@ impl Range {
 		}
 		self
 	}
+}
+
+const MAX_UTF8_CHAR_BYTES: f64 = 4.0;
+
+pub fn string_bytes(utf8: bool, len: Range) -> Range {
+	if utf8 { len.mul_max(MAX_UTF8_CHAR_BYTES) } else { len }
 }
 
 impl Display for Range {

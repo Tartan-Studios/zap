@@ -113,7 +113,9 @@ The length of strings can be constrained by placing [a range](#as-a-recap) withi
 
 <CodeBlock code="string.utf8(3..20)" />
 
-Or for a binary string:
+A UTF-8 string's range counts characters, as Luau's `utf8.len` counts them: one per Unicode code point, so an emoji built from several code points counts as several characters. Zap sizes the length it sends for up to 4 bytes per character, and checks the character count when it reads the string and, with [`write_checks`](./options.md#write-checks) on, when it writes it. A single number, such as `string.utf8(5)`, means exactly that many characters.
+
+Or for a binary string, where the range counts bytes:
 
 <CodeBlock code="string.binary(3..20)" />
 

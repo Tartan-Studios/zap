@@ -264,6 +264,22 @@ pub trait Gen {
 		);
 	}
 
+	fn push_utf8_length_check(&mut self, expr: Expr, chars: Range) {
+		if chars.min().is_none() && chars.max().is_none() {
+			self.push_utf8_check(expr);
+			return;
+		}
+
+		let (chars_name, chars_expr) = self.add_occurrence("chars");
+
+		self.push_local(
+			chars_name,
+			Some(Var::NameIndex(Var::Name("utf8".into()).into(), "len".to_string()).call(vec![expr])),
+		);
+		self.push_assert(chars_expr.clone().neq(Expr::Nil), "value is not valid utf-8".into());
+		self.push_range_check(chars_expr, chars);
+	}
+
 	fn get_var_occurrences(&mut self) -> &mut HashMap<String, usize>;
 	fn add_occurrence(&mut self, name: &str) -> (String, Expr) {
 		match self.get_var_occurrences().get(name) {
