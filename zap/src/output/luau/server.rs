@@ -116,9 +116,15 @@ impl<'src> ServerOutput<'src> {
 								this.push_line(&format!("{fire_all} = noop,"));
 							}
 
-							this.push_line(&format!("{fire_except} = noop,"));
+							if !this.config.disable_fire_except {
+								this.push_line(&format!("{fire_except} = noop,"));
+							}
+
 							this.push_line(&format!("{fire_list} = noop,"));
-							this.push_line(&format!("{fire_set} = noop"));
+
+							if !this.config.disable_fire_set {
+								this.push_line(&format!("{fire_set} = noop"));
+							}
 						}
 
 						this.dedent();
@@ -1469,9 +1475,15 @@ impl<'src> ServerOutput<'src> {
 							this.push_return_fire_all(evdecl);
 						}
 
-						this.push_return_fire_except(evdecl);
+						if !this.config.disable_fire_except {
+							this.push_return_fire_except(evdecl);
+						}
+
 						this.push_return_fire_list(evdecl);
-						this.push_return_fire_set(evdecl);
+
+						if !this.config.disable_fire_set {
+							this.push_return_fire_set(evdecl);
+						}
 
 						this.dedent();
 						this.push_line("},");

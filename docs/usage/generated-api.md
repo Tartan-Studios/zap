@@ -124,6 +124,10 @@ Zap.MyEvent.FireAll({
 
 The `FireExcept` function takes a player and the event's data as its arguments. It will fire the event to all players except the specified player.
 
+::: info
+`FireExcept` can be disabled using the [disable_fire_except](../config/options.md#disable-fire-except) option.
+:::
+
 ```lua
 Zap.MyEvent.FireExcept(Player, {
     foo = "baz",
@@ -145,6 +149,10 @@ Zap.MyEvent.FireList({ Player1, Player2 }, {
 ### FireSet
 
 The `FireSet` function takes a set of players and the event's data as its arguments. It will fire the event to all players in the set.
+
+::: info
+`FireSet` can be disabled using the [disable_fire_set](../config/options.md#disable-fire-set) option.
+:::
 
 ::: tip
 A [set](../config/types.md#sets) is a table where the keys are of a certain datatype and the values are always `True`.

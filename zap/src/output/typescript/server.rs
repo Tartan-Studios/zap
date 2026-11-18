@@ -236,9 +236,15 @@ impl<'src> ServerOutput<'src> {
 							this.push_return_fire_all(evdecl);
 						}
 
-						this.push_return_fire_except(evdecl);
+						if !this.config.disable_fire_except {
+							this.push_return_fire_except(evdecl);
+						}
+
 						this.push_return_fire_list(evdecl);
-						this.push_return_fire_set(evdecl);
+
+						if !this.config.disable_fire_set {
+							this.push_return_fire_set(evdecl);
+						}
 
 						this.dedent();
 						this.push_line("};");
