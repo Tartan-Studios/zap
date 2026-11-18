@@ -94,6 +94,7 @@ impl Des<'_> {
 					self.push_stmt(if i == 0 { Stmt::If(cond) } else { Stmt::ElseIf(cond) });
 					cb(self, i);
 				}
+				self.push_unknown_variant_error();
 				self.push_stmt(Stmt::End);
 			}
 			VariantStorageKind::Bitpack(variants) => {
@@ -103,6 +104,7 @@ impl Des<'_> {
 					self.push_stmt(if i == 0 { Stmt::If(cond) } else { Stmt::ElseIf(cond) });
 					cb(self, i);
 				}
+				self.push_unknown_variant_error();
 				self.push_stmt(Stmt::End);
 			}
 			VariantStorageKind::Bit((bits, var)) => {
@@ -116,6 +118,13 @@ impl Des<'_> {
 			VariantStorageKind::None => {
 				cb(self, 0);
 			}
+		}
+	}
+
+	fn push_unknown_variant_error(&mut self) {
+		if self.checks {
+			self.push_stmt(Stmt::Else);
+			self.push_stmt(Stmt::Error("received an unknown variant!".into()));
 		}
 	}
 
