@@ -472,7 +472,8 @@ impl<'src> Ty<'src> {
 							PrimitiveTy::Enum(Enum::Tagged { variants, .. }) => variants.len(),
 							_ => 1,
 						})
-						.sum::<usize>() + *optional as usize) as f64,
+						.sum::<usize>()
+						+ *optional as usize) as f64,
 				);
 
 				(
