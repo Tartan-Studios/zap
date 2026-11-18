@@ -36,3 +36,24 @@ fn every_send_method_writes_the_same_bytes_and_the_client_reads_them_back() {
 
 	assert_snapshot!(transcript);
 }
+
+#[test]
+fn send_methods_stay_typed_in_the_returned_table() {
+	let script = zap::run(include_str!("./wire.zap"), true);
+	let server = script.code.expect("Zap did not generate any code!").server.code;
+	let returns = &server[server.find("local returns = {").expect("no returns table")..];
+
+	assert!(
+		!returns.contains("(function()"),
+		"events must not be built by a closure the type checker cannot see through"
+	);
+
+	for method in ["Fire", "FireAll", "FireExcept", "FireList", "FireSet"] {
+		assert!(
+			returns.contains(&format!("\t{method} = function(")),
+			"{method} is not a typed function in the returned table"
+		);
+	}
+
+	assert!(returns.contains("\t\tFire = function(Player: Player, Value: (string))"));
+}

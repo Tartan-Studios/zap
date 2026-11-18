@@ -14,7 +14,12 @@ use crate::{
 
 use super::Output;
 
-const EVENT_WRITER: &str = "write_event";
+fn event_writer(ev: &EvDecl) -> String {
+	match ev.evty {
+		EvType::Reliable => format!("reliable_writers[{}]", ev.id + 1),
+		EvType::Unreliable(_) => format!("unreliable_writers[{}]", ev.id + 1),
+	}
+}
 
 struct ServerOutput<'src> {
 	config: &'src Config<'src>,
@@ -819,7 +824,7 @@ impl<'src> ServerOutput<'src> {
 		let value = self.config.casing.with("Value", "value", "value");
 
 		self.push_indent();
-		self.push(&format!("local function {EVENT_WRITER}("));
+		self.push(&format!("{} = function(", event_writer(ev)));
 		self.push_value_parameters(parameters);
 		self.push(")\n");
 		self.indent();
@@ -850,9 +855,9 @@ impl<'src> ServerOutput<'src> {
 		let values = get_named_values(value, &ev.data).join(", ");
 
 		if ev.evty == EvType::Unreliable(true) {
-			self.push_line(&format!("local order_id_apos = {EVENT_WRITER}({values})"));
+			self.push_line(&format!("local order_id_apos = {}({values})", event_writer(ev)));
 		} else {
-			self.push_line(&format!("{EVENT_WRITER}({values})"));
+			self.push_line(&format!("{}({values})", event_writer(ev)));
 		}
 	}
 
@@ -1424,6 +1429,23 @@ impl<'src> ServerOutput<'src> {
 		self.push_line("table.freeze(polling_queues_unreliable)\n");
 	}
 
+	fn push_event_writers(&mut self) {
+		self.push_line("local reliable_writers = {}");
+		self.push_line("local unreliable_writers = {}");
+
+		self.config.traverse_namespaces(
+			self,
+			|_, _| {},
+			|this, _, entry| {
+				if let NamespaceEntry::EvDecl(evdecl) = entry
+					&& evdecl.from == EvSource::Server
+				{
+					this.push_event_writer(evdecl);
+				}
+			},
+		);
+	}
+
 	fn push_return(&mut self) {
 		self.push_line("local returns = {");
 		self.indent();
@@ -1442,18 +1464,7 @@ impl<'src> ServerOutput<'src> {
 			},
 			|this, path, entry| {
 				let name = path.last().unwrap();
-
-				if let NamespaceEntry::EvDecl(evdecl) = entry
-					&& evdecl.from == EvSource::Server
-				{
-					this.push_line(&format!("{name} = (function()"));
-					this.indent();
-					this.push_event_writer(evdecl);
-					this.push_line("return {");
-				} else {
-					this.push_line(&format!("{name} = {{"));
-				}
-
+				this.push_line(&format!("{name} = {{"));
 				this.indent();
 
 				match entry {
@@ -1469,9 +1480,7 @@ impl<'src> ServerOutput<'src> {
 						this.push_return_fire_set(evdecl);
 
 						this.dedent();
-						this.push_line("}");
-						this.dedent();
-						this.push_line("end)(),");
+						this.push_line("},");
 					}
 					NamespaceEntry::EvDecl(evdecl) => {
 						match evdecl.call {
@@ -1639,6 +1648,8 @@ impl<'src> ServerOutput<'src> {
 		self.push_unreliable();
 
 		self.push_polling();
+
+		self.push_event_writers();
 
 		self.push_return();
 
