@@ -2,7 +2,7 @@
 source: zap/tests/native/mod.rs
 expression: report
 ---
-bitpacking: server 6508, client 5234
+bitpacking: server 6517, client 5234
 call_default: server 5295, client 3393
 disable_fire_methods: server 4691, client 3528
 function: server 3184, client 2493
@@ -13,13 +13,13 @@ include_profile_labels: server 8434, client 4674
 many_assorted: server 130636, client 164194
 many_reliables: server 57190, client 52584
 many_unreliables: server 112599, client 166022
-namespaces: server 3596, client 2957
+namespaces: server 3604, client 2957
 nested_complex: server 5617, client 2813
 no_data: server 4840, client 4028
 one_unnamed_parameter: server 5186, client 2392
-or_complex: server 3076, client 2433
+or_complex: server 3084, client 2433
 or_simple: server 2564, client 1940
-or_unknown: server 2631, client 1999
+or_unknown: server 2639, client 1999
 polling: server 5295, client 3393
 recursive: server 2689, client 2039
 regression_153: server 3171, client 2511
@@ -32,6 +32,6 @@ struct_quoted_fields: server 5245, client 2460
 tagged_enum_quoted: server 5360, client 2587
 tuples: server 5314, client 2517
 two_unnamed_parameters: server 5234, client 2453
-typescript_enum: server 2623, client 2028
-unit_enum_quoted: server 5236, client 2424
-total: server 421011, client 460403
+typescript_enum: server 2639, client 2028
+unit_enum_quoted: server 5236, client 2432
+total: server 421060, client 460411
