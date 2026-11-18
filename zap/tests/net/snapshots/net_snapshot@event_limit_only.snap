@@ -1,0 +1,18 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/net/files/event_limit_only.zap
+---
+round trip Steer (Client, Unreliable, ManySync): 12/12
+round trip Tap (Client, Reliable, ManyAsync): 12/12
+burst of 20 Client events in one frame: all arrived in order
+hostile Steer: nothing to break
+hostile Tap: nothing to break
+fuzz: 300 messages, 175 reached game code and all matched their types, 125 refused
+ordinary traffic: nothing refused
+one packet of 42 events beside another player's event: 32 Tap from Player2, 1 Tap from Player1 arrived; refused [Player2 TooManyEvents]
+the next frame, exactly 32 events: 32 Tap from Player2 arrived; refused []
+two packets of 29 and 10 events in one frame: 32 Tap from Player2 arrived; refused [Player2 TooManyEvents]
+35 unreliable packets in one frame: 32 Steer from Player2 arrived; refused [Player2 TooManyEvents x3]
+31 unreliable packets then a reliable packet of 5 events in one frame: 31 Steer from Player2, 1 Tap from Player2 arrived; refused [Player2 TooManyEvents]
+a 1048576 byte packet of 1048576 events: 32 Tap from Player2 arrived; refused [Player2 TooManyEvents]

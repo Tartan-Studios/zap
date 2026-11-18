@@ -38,3 +38,8 @@ end)
 local accepted, receipt = client.Buy.Call("hat", 2)
 local acceptedBoolean: boolean = accepted
 local receiptNumber: number? = receipt
+
+local stopHearingRefusals = server.SetPacketRefusedCallback(function(from: Player, reason: "PacketTooLarge" | "TooManyEvents")
+	local refusedName: string = from.Name
+end)
+stopHearingRefusals()

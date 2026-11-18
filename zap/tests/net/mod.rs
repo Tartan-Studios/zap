@@ -229,6 +229,15 @@ fn schema(config: &Config) -> String {
 	)
 	.unwrap();
 
+	let limit = |limit: Option<u32>| limit.map(|limit| limit.to_string()).unwrap_or("nil".into());
+	writeln!(
+		out,
+		"\tlimits = {{ packetBytes = {}, eventsPerFrame = {} }},",
+		limit(config.max_client_packet_bytes),
+		limit(config.max_client_events_per_frame)
+	)
+	.unwrap();
+
 	out.push_str("\ttypes = {\n");
 	for tydecl in &config.tydecls {
 		writeln!(

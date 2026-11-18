@@ -20,6 +20,7 @@ one_unnamed_parameter: server 5186, client 2392
 or_complex: server 3084, client 2433
 or_simple: server 2564, client 1940
 or_unknown: server 2639, client 1999
+packet_limits: server 11047, client 4887
 polling: server 5295, client 3393
 recursive: server 2689, client 2039
 regression_153: server 3171, client 2511
@@ -34,4 +35,4 @@ tuples: server 5314, client 2517
 two_unnamed_parameters: server 5234, client 2453
 typescript_enum: server 2639, client 2028
 unit_enum_quoted: server 5236, client 2432
-total: server 421060, client 460411
+total: server 432107, client 465298
