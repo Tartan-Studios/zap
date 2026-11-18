@@ -3,4 +3,5 @@ pub mod irgen;
 pub mod lune;
 pub mod net;
 pub mod selene;
+pub mod stable_output;
 pub mod wire;
