@@ -23,7 +23,7 @@ struct Converter<'src> {
 	config: SyntaxConfig<'src>,
 	tydecls: HashMap<String, SyntaxTyDecl<'src>>,
 	resolved_tys: HashMap<String, Rc<RefCell<Ty<'src>>>>,
-	all_tydecls: HashMap<String, TyDecl<'src>>,
+	all_tydecls: BTreeMap<String, TyDecl<'src>>,
 	current_tydecl: Option<SyntaxTyDecl<'src>>,
 	path: Vec<&'src str>,
 
@@ -43,7 +43,7 @@ impl<'src> Converter<'src> {
 		Self {
 			config,
 			tydecls: HashMap::new(),
-			all_tydecls: HashMap::new(),
+			all_tydecls: BTreeMap::new(),
 			current_tydecl: None,
 			path: Vec::new(),
 			resolved_tys: Default::default(),
@@ -229,7 +229,7 @@ impl<'src> Converter<'src> {
 		let (disable_fire_set, ..) = self.boolean_opt("disable_fire_set", false, &config.opts);
 
 		let config = Config {
-			tydecls: self.all_tydecls.drain().map(|(_, tydecl)| tydecl).collect(),
+			tydecls: std::mem::take(&mut self.all_tydecls).into_values().collect(),
 			namespaces,
 
 			typescript,

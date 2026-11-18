@@ -1,0 +1,9 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/files/regression_197.zap
+---
+round trip A.Test (Client, Reliable, SingleSync): 12/12
+burst of 20 Client events in one frame: all arrived in order
+hostile A.Test: nothing to break
+fuzz: 300 messages, 84 reached game code and all matched their types, 216 refused

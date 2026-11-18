@@ -1,0 +1,13 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/net/files/everything_server.zap
+---
+round trip Deep.Deeper.Note (Server, Reliable, ManyAsync): 12/12
+round trip Everything (Server, Reliable, ManyAsync): 12/12
+round trip Moved (Server, Unreliable, ManyAsync): 12/12
+round trip Ordered (Server, OrderedUnreliable, SingleAsync): 12/12
+round trip Ping (Server, Reliable, SingleSync): 12/12
+round trip Polled (Server, Reliable, Polling): 12/12
+round trip Tuple (Server, Reliable, ManySync): 12/12
+burst of 20 Server events in one frame: all arrived in order

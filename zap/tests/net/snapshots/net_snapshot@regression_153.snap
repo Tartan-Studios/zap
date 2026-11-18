@@ -1,0 +1,8 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/files/regression_153.zap
+---
+function MultipleRets (Async): 12/12
+hostile function MultipleRets: nothing to break
+fuzz: 300 messages, 1 reached game code and all matched their types, 299 refused
