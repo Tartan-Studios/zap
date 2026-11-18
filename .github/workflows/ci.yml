@@ -7,17 +7,23 @@ on:
     branches:
       - rewrite
       - '0.6.x'
-    paths: 
+    paths:
       - '**.rs'
       - 'Cargo.{lock,toml}'
+      - 'zap/tests/**'
+      - 'scripts/fetch-luau-tools.py'
+      - '.github/workflows/ci.yml'
 
   pull_request:
     branches:
       - rewrite
       - '0.6.x'
-    paths: 
+    paths:
       - '**.rs'
       - 'Cargo.{lock,toml}'
+      - 'zap/tests/**'
+      - 'scripts/fetch-luau-tools.py'
+      - '.github/workflows/ci.yml'
 
   workflow_dispatch: {}
 
@@ -47,6 +53,9 @@ jobs:
 
       - name: Build (WASM)
         run: wasm-pack build zap -d package --no-opt --locked --verbose
+
+      - name: Install Luau tools
+        run: python3 scripts/fetch-luau-tools.py
 
       - name: Test
         run: cargo test --locked --verbose
