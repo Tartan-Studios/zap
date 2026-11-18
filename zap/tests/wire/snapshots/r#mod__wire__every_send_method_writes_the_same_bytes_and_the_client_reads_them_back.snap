@@ -1,0 +1,111 @@
+---
+source: zap/tests/wire/mod.rs
+expression: transcript
+---
+== Detailed.Fire
+FireClient ZAP_RELIABLE -> Player1: 01 19 c8 c0 1d fe ff 9a 99 99 99 99 99 b9 3f 02 03 07 00 06 54 69 63 6b 65 74 02 01 61 02 62 63 06 77 69 6e 64 6f 77 00 ff ff 00 00 00 00 04 67 61 74 65 04 00 00 00 0c 00 00 00 c0 3f 00 00 00 c0 00 00 40 40 [Part, Owner]
+  received Detailed({"active"=true, "count"=200, "delta"=-123456, "items"={1={"id"=7, "kind"="Small", "name"="Ticket", "note"="window", "tags"={1="a", 2="bc"}}, 2={"id"=65535, "kind"="Large", "name"="", "tags"={}}}, "owner"=Owner, "part"=Part, "position"=vector(1.5, -2, 3), "ratio"=0.1, "scores"={"gate"=4}, "shape"={"filled"=true, "kind"="Square", "side"=12}})
+== Detailed.FireAll
+FireClient ZAP_RELIABLE -> Player1: 01 06 00 00 00 00 00 00 00 00 00 00 00 f0 bf 00 00 00 20 40 00 00 00 00 00 00 00 00 00 00 00 00 [Owner]
+FireClient ZAP_RELIABLE -> Player2: 01 06 00 00 00 00 00 00 00 00 00 00 00 f0 bf 00 00 00 20 40 00 00 00 00 00 00 00 00 00 00 00 00 [Owner]
+FireClient ZAP_RELIABLE -> Player3: 01 06 00 00 00 00 00 00 00 00 00 00 00 f0 bf 00 00 00 20 40 00 00 00 00 00 00 00 00 00 00 00 00 [Owner]
+  received Detailed({"active"=false, "count"=0, "delta"=0, "items"={}, "owner"=Owner, "position"=vector(0, 0, 0), "ratio"=-1, "scores"={}, "shape"={"kind"="Circle", "radius"=2.5}})
+== Detailed.FireExcept
+FireClient ZAP_RELIABLE -> Player1: 01 19 c8 c0 1d fe ff 9a 99 99 99 99 99 b9 3f 02 03 07 00 06 54 69 63 6b 65 74 02 01 61 02 62 63 06 77 69 6e 64 6f 77 00 ff ff 00 00 00 00 04 67 61 74 65 04 00 00 00 0c 00 00 00 c0 3f 00 00 00 c0 00 00 40 40 [Part, Owner]
+FireClient ZAP_RELIABLE -> Player3: 01 19 c8 c0 1d fe ff 9a 99 99 99 99 99 b9 3f 02 03 07 00 06 54 69 63 6b 65 74 02 01 61 02 62 63 06 77 69 6e 64 6f 77 00 ff ff 00 00 00 00 04 67 61 74 65 04 00 00 00 0c 00 00 00 c0 3f 00 00 00 c0 00 00 40 40 [Part, Owner]
+  received Detailed({"active"=true, "count"=200, "delta"=-123456, "items"={1={"id"=7, "kind"="Small", "name"="Ticket", "note"="window", "tags"={1="a", 2="bc"}}, 2={"id"=65535, "kind"="Large", "name"="", "tags"={}}}, "owner"=Owner, "part"=Part, "position"=vector(1.5, -2, 3), "ratio"=0.1, "scores"={"gate"=4}, "shape"={"filled"=true, "kind"="Square", "side"=12}})
+== Detailed.FireList
+FireClient ZAP_RELIABLE -> Player1: 01 06 00 00 00 00 00 00 00 00 00 00 00 f0 bf 00 00 00 20 40 00 00 00 00 00 00 00 00 00 00 00 00 [Owner]
+FireClient ZAP_RELIABLE -> Player3: 01 06 00 00 00 00 00 00 00 00 00 00 00 f0 bf 00 00 00 20 40 00 00 00 00 00 00 00 00 00 00 00 00 [Owner]
+  received Detailed({"active"=false, "count"=0, "delta"=0, "items"={}, "owner"=Owner, "position"=vector(0, 0, 0), "ratio"=-1, "scores"={}, "shape"={"kind"="Circle", "radius"=2.5}})
+== Detailed.FireSet
+FireClient ZAP_RELIABLE -> Player1: 01 19 c8 c0 1d fe ff 9a 99 99 99 99 99 b9 3f 02 03 07 00 06 54 69 63 6b 65 74 02 01 61 02 62 63 06 77 69 6e 64 6f 77 00 ff ff 00 00 00 00 04 67 61 74 65 04 00 00 00 0c 00 00 00 c0 3f 00 00 00 c0 00 00 40 40 [Part, Owner]
+  received Detailed({"active"=true, "count"=200, "delta"=-123456, "items"={1={"id"=7, "kind"="Small", "name"="Ticket", "note"="window", "tags"={1="a", 2="bc"}}, 2={"id"=65535, "kind"="Large", "name"="", "tags"={}}}, "owner"=Owner, "part"=Part, "position"=vector(1.5, -2, 3), "ratio"=0.1, "scores"={"gate"=4}, "shape"={"filled"=true, "kind"="Square", "side"=12}})
+== Nested.Note.Fire
+FireClient ZAP_RELIABLE -> Player1: 00 0a 66 69 72 73 74 20 6e 6f 74 65 []
+  received Nested.Note("first note")
+== Nested.Note.FireAll
+FireClient ZAP_RELIABLE -> Player1: 00 00 []
+FireClient ZAP_RELIABLE -> Player2: 00 00 []
+FireClient ZAP_RELIABLE -> Player3: 00 00 []
+  received Nested.Note("")
+== Nested.Note.FireExcept
+FireClient ZAP_RELIABLE -> Player1: 00 0a 66 69 72 73 74 20 6e 6f 74 65 []
+FireClient ZAP_RELIABLE -> Player3: 00 0a 66 69 72 73 74 20 6e 6f 74 65 []
+  received Nested.Note("first note")
+== Nested.Note.FireList
+FireClient ZAP_RELIABLE -> Player1: 00 00 []
+FireClient ZAP_RELIABLE -> Player3: 00 00 []
+  received Nested.Note("")
+== Nested.Note.FireSet
+FireClient ZAP_RELIABLE -> Player1: 00 0a 66 69 72 73 74 20 6e 6f 74 65 []
+  received Nested.Note("first note")
+== Pair
+FireClient ZAP_RELIABLE -> Player1: 02 08 62 6f 61 72 64 69 6e 67 2a 00 02 04 67 61 74 65 07 00 02 04 73 65 61 74 01 00 02 03 62 61 67 02 00 02 04 74 72 61 79 03 00 []
+FireClient ZAP_RELIABLE -> Player2: 02 04 67 61 74 65 07 00 02 04 73 65 61 74 01 00 []
+FireClient ZAP_RELIABLE -> Player3: 02 04 67 61 74 65 07 00 []
+  received Pair("boarding", 42)
+  received Pair("gate", 7)
+  received Pair("seat", 1)
+  received Pair("bag", 2)
+  received Pair("tray", 3)
+== Ping
+FireClient ZAP_RELIABLE -> Player1: 03 03 03 03 []
+FireClient ZAP_RELIABLE -> Player2: 03 03 03 []
+FireClient ZAP_RELIABLE -> Player3: 03 03 []
+  received Ping(nil)
+  received Ping(nil)
+  received Ping(nil)
+  received Ping(nil)
+== Moved
+FireClient ZAP_UNRELIABLE_0 -> Player1: 00 00 a0 3f 00 00 00 c1 []
+FireClient ZAP_UNRELIABLE_0 -> Player1: 00 00 40 40 00 00 80 40 []
+FireClient ZAP_UNRELIABLE_0 -> Player1: 00 00 a0 40 00 00 c0 40 []
+FireClient ZAP_UNRELIABLE_0 -> Player1: 00 00 e0 40 00 00 00 41 []
+FireClient ZAP_UNRELIABLE_0 -> Player3: 00 00 40 40 00 00 80 40 []
+FireClient ZAP_UNRELIABLE_0 -> Player3: 00 00 a0 40 00 00 c0 40 []
+FireAllClients ZAP_UNRELIABLE_0 -> everyone: 00 00 00 00 00 00 00 00 []
+  received Moved({"x"=1.25, "z"=-8})
+  received Moved({"x"=3, "z"=4})
+  received Moved({"x"=5, "z"=6})
+  received Moved({"x"=7, "z"=8})
+  received Moved({"x"=0, "z"=0})
+== Ordered
+FireClient ZAP_UNRELIABLE_1 -> Player1: 00 00 01 00 []
+FireClient ZAP_UNRELIABLE_1 -> Player1: 01 00 02 00 []
+FireClient ZAP_UNRELIABLE_1 -> Player1: 02 00 03 00 []
+FireClient ZAP_UNRELIABLE_1 -> Player1: 03 00 04 00 []
+FireClient ZAP_UNRELIABLE_1 -> Player1: 04 00 05 00 []
+FireClient ZAP_UNRELIABLE_1 -> Player1: 05 00 06 00 []
+FireClient ZAP_UNRELIABLE_1 -> Player2: 00 00 03 00 []
+FireClient ZAP_UNRELIABLE_1 -> Player3: 00 00 03 00 []
+FireClient ZAP_UNRELIABLE_1 -> Player3: 01 00 04 00 []
+FireClient ZAP_UNRELIABLE_1 -> Player3: 02 00 05 00 []
+  received Ordered(1)
+  received Ordered(2)
+  received Ordered(3)
+  received Ordered(4)
+  received Ordered(5)
+  received Ordered(6)
+== Tick
+FireClient ZAP_UNRELIABLE_2 -> Player1: 00 00 []
+FireClient ZAP_UNRELIABLE_2 -> Player1: 01 00 []
+FireClient ZAP_UNRELIABLE_2 -> Player1: 02 00 []
+FireClient ZAP_UNRELIABLE_2 -> Player1: 03 00 []
+FireClient ZAP_UNRELIABLE_2 -> Player1: 04 00 []
+FireClient ZAP_UNRELIABLE_2 -> Player2: 00 00 []
+FireClient ZAP_UNRELIABLE_2 -> Player2: 01 00 []
+FireClient ZAP_UNRELIABLE_2 -> Player3: 00 00 []
+  received Tick(nil)
+  received Tick(nil)
+  received Tick(nil)
+  received Tick(nil)
+  received Tick(nil)
+== Interleaved
+FireClient ZAP_RELIABLE -> Player1: 02 03 6f 6e 65 01 00 01 06 00 00 00 00 00 00 00 00 00 00 00 f0 bf 00 00 00 20 40 00 00 00 00 00 00 00 00 00 00 00 00 03 02 03 74 77 6f 02 00 [Owner]
+FireClient ZAP_RELIABLE -> Player2: 03 02 03 74 77 6f 02 00 []
+FireClient ZAP_RELIABLE -> Player3: 03 []
+  received Pair("one", 1)
+  received Detailed({"active"=false, "count"=0, "delta"=0, "items"={}, "owner"=Owner, "position"=vector(0, 0, 0), "ratio"=-1, "scores"={}, "shape"={"kind"="Circle", "radius"=2.5}})
+  received Ping(nil)
+  received Pair("two", 2)
