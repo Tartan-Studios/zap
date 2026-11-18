@@ -225,6 +225,8 @@ impl<'src> Converter<'src> {
 		let yield_type = self.yield_type_opt(typescript, &config.opts);
 		let async_lib = self.async_lib(yield_type, &config.opts, typescript);
 		let (disable_fire_all, ..) = self.boolean_opt("disable_fire_all", false, &config.opts);
+		let (disable_fire_except, ..) = self.boolean_opt("disable_fire_except", false, &config.opts);
+		let (disable_fire_set, ..) = self.boolean_opt("disable_fire_set", false, &config.opts);
 
 		let config = Config {
 			tydecls: self.all_tydecls.drain().map(|(_, tydecl)| tydecl).collect(),
@@ -254,6 +256,8 @@ impl<'src> Converter<'src> {
 			yield_type,
 			async_lib,
 			disable_fire_all,
+			disable_fire_except,
+			disable_fire_set,
 		};
 
 		self.check_empty_file(&config);

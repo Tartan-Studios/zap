@@ -53,6 +53,8 @@ pub struct Config<'src> {
 	pub yield_type: YieldType,
 	pub async_lib: &'src str,
 	pub disable_fire_all: bool,
+	pub disable_fire_except: bool,
+	pub disable_fire_set: bool,
 }
 
 impl<'src> Config<'src> {
@@ -470,7 +472,8 @@ impl<'src> Ty<'src> {
 							PrimitiveTy::Enum(Enum::Tagged { variants, .. }) => variants.len(),
 							_ => 1,
 						})
-						.sum::<usize>() + *optional as usize) as f64,
+						.sum::<usize>()
+						+ *optional as usize) as f64,
 				);
 
 				(

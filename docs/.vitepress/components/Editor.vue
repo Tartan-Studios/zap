@@ -110,7 +110,7 @@ const beforeMount = (monaco: Monaco) => {
 
 	const Calls = ["SingleSync", "SingleAsync", "ManySync", "ManyAsync", "Polling"] as const;
 
-	const Options = ["write_checks", "typescript", "typescript_max_tuple_length", "typescript_enum", "manual_event_loop", "include_profile_labels", "remote_scope", "remote_folder", "server_output", "client_output", "casing", "yield_type", "async_lib", "tooling", "tooling_output", "tooling_show_internal_data", "disable_fire_all", "types_output", "call_default"] as const;
+	const Options = ["write_checks", "typescript", "typescript_max_tuple_length", "typescript_enum", "manual_event_loop", "include_profile_labels", "remote_scope", "remote_folder", "server_output", "client_output", "casing", "yield_type", "async_lib", "tooling", "tooling_output", "tooling_show_internal_data", "disable_fire_all", "disable_fire_except", "disable_fire_set", "types_output", "call_default"] as const;
 
 	const TypeScriptEnum = ["StringLiteral", "ConstEnum", "StringConstEnum"].map((value) => `"${value}"`)
 	const Casing = ["PascalCase", "camelCase", "snake_case"].map((value) => `"${value}"`);
@@ -181,6 +181,8 @@ const beforeMount = (monaco: Monaco) => {
 		yield_type: YieldType,
 		async_lib: [],
 		disable_fire_all: Operators,
+		disable_fire_except: Operators,
+		disable_fire_set: Operators,
 
 		call_default: Calls.map((value) => `"${value}"`)
 	} as const;

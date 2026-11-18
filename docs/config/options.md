@@ -400,3 +400,27 @@ This option determines if Zap should generate a `.FireAll` method on the server 
 ### Example
 
 <CodeBlock code="opt disable_fire_all = true" />
+
+## `disable_fire_except`
+
+This option determines if Zap should generate a `.FireExcept` method on the server side. Each server method contains its own copy of the event's serializer, so turning off methods you never call makes the generated server module smaller.
+
+### Default
+
+`false`
+
+### Example
+
+<CodeBlock code="opt disable_fire_except = true" />
+
+## `disable_fire_set`
+
+This option determines if Zap should generate a `.FireSet` method on the server side. Like `disable_fire_except`, it makes the generated server module smaller when you never call the method.
+
+### Default
+
+`false`
+
+### Example
+
+<CodeBlock code="opt disable_fire_set = true" />
