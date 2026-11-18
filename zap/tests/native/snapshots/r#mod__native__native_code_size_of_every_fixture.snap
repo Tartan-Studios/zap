@@ -4,7 +4,7 @@ expression: report
 ---
 bitpacking: server 6517, client 5234
 call_default: server 5295, client 3393
-disable_fire_methods: server 4691, client 3528
+disable_fire_methods: server 4695, client 3528
 function: server 3184, client 2493
 function_mutiple_rets: server 3134, client 2448
 function_one_unnamed_parameter: server 3074, client 2367
@@ -34,4 +34,4 @@ tuples: server 5314, client 2517
 two_unnamed_parameters: server 5234, client 2453
 typescript_enum: server 2639, client 2028
 unit_enum_quoted: server 5236, client 2432
-total: server 421060, client 460411
+total: server 421064, client 460411

@@ -12,10 +12,12 @@ round trip Steered (Client, Unreliable, ManySync): 12/12
 round trip Tuple (Client, Reliable, SingleSync): 12/12
 burst of 20 Client events in one frame: all arrived in order
 hostile Everything: refused 8 of 8, 0 not sendable
-hostile Ordered: refused 7 of 7, 0 not sendable
+hostile Ordered: refused 6 of 6, 0 not sendable
 hostile Ping: nothing to break
 hostile Placed: refused 8 of 8, 0 not sendable
 hostile Polled: refused 8 of 8, 0 not sendable
 hostile Steered: refused 8 of 8, 0 not sendable
 hostile Tuple: refused 8 of 8, 0 not sendable
-fuzz: 300 messages, 61 reached game code and all matched their types, 239 refused
+utf8 Polled argument 1 (..12): accepted [12 four-byte], refused [13 one-byte, 13 two-byte]
+utf8 Tuple argument 2 (..12): accepted [12 four-byte], refused [13 one-byte, 13 two-byte]
+fuzz: 300 messages, 50 reached game code and all matched their types, 250 refused

@@ -252,7 +252,8 @@ local function generateNumber(desc): number
 	return toF32(low)
 end
 
-local UTF8_PIECES = { "a", "Z", "7", " ", "\u{e9}", "\u{20ac}", "\u{1f6eb}" }
+local WIDEST_UTF8_CHARACTER = "\u{1f6eb}"
+local UTF8_PIECES = { "a", "Z", "7", " ", "\u{e9}", "\u{20ac}", WIDEST_UTF8_CHARACTER }
 
 local function generateString(desc, length: number): string
 	if not desc.utf8 then
@@ -262,15 +263,12 @@ local function generateString(desc, length: number): string
 		end
 		return table.concat(bytes)
 	end
-	local pieces = {}
-	local used = 0
-	while used < length do
-		local piece = pick(UTF8_PIECES)
-		if used + #piece > length then
-			piece = "x"
-		end
-		table.insert(pieces, piece)
-		used += #piece
+	if chance(0.2) then
+		return string.rep(WIDEST_UTF8_CHARACTER, length)
+	end
+	local pieces = table.create(length)
+	for index = 1, length do
+		pieces[index] = pick(UTF8_PIECES)
 	end
 	return table.concat(pieces)
 end
@@ -649,10 +647,14 @@ conforms = function(desc, value: any): (boolean, string?)
 		if typeof(value) ~= "string" then
 			return false, `expected a string, got {typeof(value)}`
 		end
-		if desc.utf8 and utf8.len(value) == nil then
+		if not desc.utf8 then
+			return lengthConforms(desc.range, #value)
+		end
+		local characters = utf8.len(value)
+		if characters == nil then
 			return false, "invalid utf-8"
 		end
-		return lengthConforms(desc.range, #value)
+		return lengthConforms(desc.range, characters)
 	elseif kind == "buf" then
 		if typeof(value) ~= "buffer" then
 			return false, `expected a buffer, got {typeof(value)}`
@@ -833,7 +835,10 @@ invalid = function(desc, depth: number): (any, string?)
 		local length = invalidLength(desc.range, desc.cap)
 		if length then
 			local text = string.rep("a", length)
-			return if kind == "str" then text else buffer.fromstring(text), `length {length}`
+			if kind == "buf" then
+				return buffer.fromstring(text), `length {length}`
+			end
+			return text, if desc.utf8 then `{length} characters` else `length {length}`
 		end
 		if kind == "str" and desc.utf8 and (desc.range.max == nil or desc.range.max >= 1) then
 			local low = math.max(desc.range.min or 0, 1)
@@ -1545,6 +1550,121 @@ local function hostile(event)
 	end
 end
 
+local function resolve(desc)
+	while desc.kind == "ref" do
+		desc = SCHEMA.types[desc.name]
+	end
+	return desc
+end
+
+local function utf8Slots(params)
+	local slots = {}
+	for index, param in params do
+		local desc = resolve(param)
+		if desc.kind == "str" and desc.utf8 then
+			table.insert(slots, { index = index, desc = desc, label = `argument {index}` })
+		elseif desc.kind == "struct" then
+			for _, field in desc.fields do
+				local fieldDesc = resolve(field.ty)
+				if fieldDesc.kind == "str" and fieldDesc.utf8 then
+					table.insert(slots, { index = index, field = field.name, desc = fieldDesc, label = `argument {index} field {field.name}` })
+				end
+			end
+		end
+	end
+	return slots
+end
+
+local function withSlot(params, slot, text: string)
+	local values = generateArgs(params)
+	if slot.field then
+		values[slot.index][slot.field] = text
+	else
+		values[slot.index] = text
+	end
+	return values
+end
+
+local function utf8Cases(range): ({ { text: string, label: string } }, { { text: string, label: string } })
+	local accepted, refused = {}, {}
+	if range.max then
+		table.insert(accepted, { text = string.rep(WIDEST_UTF8_CHARACTER, range.max), label = `{range.max} four-byte` })
+		table.insert(refused, { text = string.rep("a", range.max + 1), label = `{range.max + 1} one-byte` })
+		table.insert(refused, { text = string.rep("\u{e9}", range.max + 1), label = `{range.max + 1} two-byte` })
+	end
+	if range.min and range.min > 0 and range.min ~= range.max then
+		table.insert(accepted, { text = string.rep(WIDEST_UTF8_CHARACTER, range.min), label = `{range.min} four-byte` })
+	end
+	if range.min and range.min >= 2 then
+		table.insert(refused, { text = string.rep(WIDEST_UTF8_CHARACTER, range.min - 1), label = `{range.min - 1} four-byte` })
+	end
+	return accepted, refused
+end
+
+local function utf8Limits(event)
+	local name = pathName(event.path)
+	local side, receiver = receiverOf(event)
+	for _, slot in utf8Slots(event.params) do
+		local accepted, refused = utf8Cases(slot.desc.range)
+		if #accepted == 0 and #refused == 0 then
+			continue
+		end
+		local outcome = { accepted = {}, refused = {} }
+		for _, case in accepted do
+			local values = withSlot(event.params, slot, case.text)
+			serverErrors = {}
+			local ok, why = pcall(function()
+				if event.from == "Server" then
+					member(server, event.path)[N.Fire](P1, table.unpack(values, 1, values.n))
+				else
+					member(client, event.path)[N.Fire](table.unpack(values, 1, values.n))
+				end
+				pump()
+			end)
+			local inbox = collect(event, side, receiver)
+			if not ok then
+				fail(`{name} {slot.label}: sending {case.label} characters raised {why}`)
+			elseif #inbox ~= 1 or not argsEqual(event.params, values, inbox[1].values) then
+				fail(`{name} {slot.label}: {case.label} characters arrived {#inbox} times{serverErrorText()}`)
+			else
+				table.insert(outcome.accepted, case.label)
+			end
+		end
+		for _, case in refused do
+			local values = withSlot(event.params, slot, case.text)
+			local strictOk = pcall(function()
+				if event.from == "Server" then
+					member(server, event.path)[N.Fire](P1, table.unpack(values, 1, values.n))
+				else
+					member(client, event.path)[N.Fire](table.unpack(values, 1, values.n))
+				end
+			end)
+			server[N.SendEvents]()
+			client[N.SendEvents]()
+			toServer, toClients = {}, {}
+			if strictOk then
+				fail(`{name} {slot.label}: write checks let {case.label} characters through`)
+			end
+			if event.from == "Client" then
+				serverErrors = {}
+				member(looseClient, event.path)[N.Fire](table.unpack(values, 1, values.n))
+				pump()
+				local inbox = collect(event, side, receiver)
+				if #inbox > 0 then
+					fail(`{name} {slot.label}: the server accepted {case.label} characters`)
+				elseif #serverErrors == 0 then
+					fail(`{name} {slot.label}: {case.label} characters vanished without an error`)
+				elseif not strictOk then
+					table.insert(outcome.refused, case.label)
+				end
+			elseif not strictOk then
+				table.insert(outcome.refused, case.label)
+			end
+		end
+		line(`utf8 {name} {slot.label} ({slot.desc.range.min or ""}..{slot.desc.range.max or ""}): accepted [{table.concat(outcome.accepted, ", ")}], refused [{table.concat(outcome.refused, ", ")}]`)
+	end
+end
+
 local function fuzz()
 	local remotes = {}
 	for remote in handlers.Server do
@@ -1630,6 +1750,9 @@ for _, event in runnable do
 end
 for _, fn in callableFunctions do
 	hostileFunction(fn)
+end
+for _, event in runnable do
+	utf8Limits(event)
 end
 fuzz()
 finish()
