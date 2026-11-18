@@ -424,3 +424,33 @@ This option determines if Zap should generate a `.FireSet` method on the server 
 ### Example
 
 <CodeBlock code="opt disable_fire_set = true" />
+
+## `max_client_packet_bytes`
+
+This option makes the server refuse any packet a client sends that is larger than the given number of bytes. The server checks the size before it reads anything, so an oversized packet never reaches your callbacks. It applies to the reliable packet that carries a client's batched events and function calls, and to each unreliable packet.
+
+Pick a limit comfortably above the largest packet your game legitimately sends in one frame. Refused packets are reported through [`SetPacketRefusedCallback`](../usage/generated-api.md#setpacketrefusedcallback).
+
+### Default
+
+No limit.
+
+### Example
+
+<CodeBlock code="opt max_client_packet_bytes = 8192" />
+
+## `max_client_events_per_frame`
+
+This option limits how many events and function calls the server reads from one player in one frame. Every event in a reliable packet counts, and so does every unreliable packet, and the count is shared across all packets the player's client sends in the same frame. Once a player reaches the limit, the server stops reading, drops the rest of the packet and refuses that player's further packets until the next frame. Events read before the limit was reached are handled as usual.
+
+Each player's count starts again on the next `Heartbeat`. Players who sent nothing cost nothing.
+
+Packets from a client don't always arrive one per frame, so leave room for a few frames of normal traffic arriving together. Refused packets are reported through [`SetPacketRefusedCallback`](../usage/generated-api.md#setpacketrefusedcallback).
+
+### Default
+
+No limit.
+
+### Example
+
+<CodeBlock code="opt max_client_events_per_frame = 256" />
