@@ -18,3 +18,5 @@ client.Polled.Fire(10) --> error
 client.Scored.On(function(value) local points: string = value.points end) --> error
 local accepted: string = client.Buy.Call("hat", 2) --> error
 client.Buy.Call(5, 2) --> error
+server.SetPacketRefusedCallback(function(from: Player, reason: number) end) --> error
+client.SetPacketRefusedCallback(function() end) --> error

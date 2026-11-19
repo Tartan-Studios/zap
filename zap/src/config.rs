@@ -55,6 +55,8 @@ pub struct Config<'src> {
 	pub disable_fire_all: bool,
 	pub disable_fire_except: bool,
 	pub disable_fire_set: bool,
+	pub max_client_packet_bytes: Option<u32>,
+	pub max_client_events_per_frame: Option<u32>,
 }
 
 impl<'src> Config<'src> {
@@ -154,6 +156,18 @@ impl<'src> Config<'src> {
 			.iter()
 			.filter(|evdecl| evdecl.from == EvSource::Server && matches!(evdecl.evty, EvType::Unreliable(_)))
 			.count()
+	}
+
+	pub fn limits_client_packets(&self) -> bool {
+		self.max_client_packet_bytes.is_some() || self.max_client_events_per_frame.is_some()
+	}
+
+	pub fn packet_refused_callback_name(&self) -> &'static str {
+		self.casing.with(
+			"SetPacketRefusedCallback",
+			"setPacketRefusedCallback",
+			"set_packet_refused_callback",
+		)
 	}
 
 	pub fn server_reliable_ty(&self) -> NumTy {

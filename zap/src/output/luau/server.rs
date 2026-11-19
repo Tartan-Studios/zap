@@ -14,6 +14,10 @@ use crate::{
 
 use super::Output;
 
+const PACKET_TOO_LARGE: &str = "PacketTooLarge";
+const TOO_MANY_EVENTS: &str = "TooManyEvents";
+const REFUSED_REASON_TY: &str = "\"PacketTooLarge\" | \"TooManyEvents\"";
+
 fn event_writer(ev: &EvDecl) -> String {
 	match ev.evty {
 		EvType::Reliable => format!("reliable_writers[{}]", ev.id + 1),
@@ -86,6 +90,10 @@ impl<'src> ServerOutput<'src> {
 		let send_events = self.config.casing.with("SendEvents", "sendEvents", "send_events");
 
 		self.push_line(&format!("{send_events} = noop,"));
+
+		if self.config.limits_client_packets() {
+			self.push_line(&format!("{} = noop,", self.config.packet_refused_callback_name()));
+		}
 
 		self.config.traverse_namespaces(
 			self,
@@ -247,9 +255,36 @@ impl<'src> ServerOutput<'src> {
 		}
 	}
 
+	fn push_refuse_oversize_packet(&mut self) {
+		if let Some(max_bytes) = self.config.max_client_packet_bytes {
+			self.push_line(&format!("if buffer.len(buff) > {max_bytes} then"));
+			self.indent();
+			self.push_line(&format!("refuse_packet(player, \"{PACKET_TOO_LARGE}\")"));
+			self.push_line("return");
+			self.dedent();
+			self.push_line("end");
+		}
+	}
+
+	fn push_refuse_too_many_events(&mut self) {
+		self.push_line("if events_left == 0 then");
+		self.indent();
+
+		if self.config.include_profile_labels {
+			self.push_line("debug.profileend()");
+		}
+
+		self.push_line(&format!("refuse_packet(player, \"{TOO_MANY_EVENTS}\")"));
+		self.push_line("return");
+		self.dedent();
+		self.push_line("end");
+	}
+
 	fn push_reliable_header(&mut self) {
 		self.push_line("reliable.OnServerEvent:Connect(function(player, buff, inst)");
 		self.indent();
+
+		self.push_refuse_oversize_packet();
 
 		if self.config.include_profile_labels {
 			self.push_line("debug.profilebegin(\"Zap Reliable OnServerEvent\")");
@@ -261,9 +296,20 @@ impl<'src> ServerOutput<'src> {
 		self.push_line("incoming_ipos = 0");
 
 		self.push_line("local len = buffer.len(buff)");
+
+		if self.config.max_client_events_per_frame.is_some() {
+			self.push_line("local events_left = events_left_this_frame(player)");
+		}
+
 		self.push_line("while incoming_read < len do");
 
 		self.indent();
+
+		if self.config.max_client_events_per_frame.is_some() {
+			self.push_refuse_too_many_events();
+			self.push_line("events_left -= 1");
+			self.push_line("player_events_left[player] = events_left");
+		}
 
 		let server_reliable_ty = self.config.server_reliable_ty();
 
@@ -644,6 +690,19 @@ impl<'src> ServerOutput<'src> {
 			ev.name
 		));
 		self.indent();
+
+		self.push_refuse_oversize_packet();
+
+		if self.config.max_client_events_per_frame.is_some() {
+			self.push_line("local events_left = events_left_this_frame(player)");
+			self.push_line("if events_left == 0 then");
+			self.indent();
+			self.push_line(&format!("refuse_packet(player, \"{TOO_MANY_EVENTS}\")"));
+			self.push_line("return");
+			self.dedent();
+			self.push_line("end");
+			self.push_line("player_events_left[player] = events_left - 1");
+		}
 
 		if self.config.include_profile_labels {
 			self.push_line(&format!(
@@ -1196,6 +1255,30 @@ impl<'src> ServerOutput<'src> {
 		self.push_line("end,");
 	}
 
+	fn push_return_packet_refused_callback(&mut self) {
+		let callback = self.config.casing.with("Callback", "callback", "callback");
+		let player = self.config.casing.with("Player", "player", "player");
+		let reason = self.config.casing.with("Reason", "reason", "reason");
+
+		self.push_line(&format!(
+			"{} = function({callback}: ({player}: Player, {reason}: {REFUSED_REASON_TY}) -> ()): () -> ()",
+			self.config.packet_refused_callback_name()
+		));
+		self.indent();
+		self.push_line(&format!("packet_refused_callback = {callback}"));
+		self.push_line("return function()");
+		self.indent();
+		self.push_line(&format!("if packet_refused_callback == {callback} then"));
+		self.indent();
+		self.push_line("packet_refused_callback = nil");
+		self.dedent();
+		self.push_line("end");
+		self.dedent();
+		self.push_line("end");
+		self.dedent();
+		self.push_line("end,");
+	}
+
 	fn push_return_setcallback(&mut self, ev: &EvDecl) {
 		let id = ev.id;
 
@@ -1460,6 +1543,10 @@ impl<'src> ServerOutput<'src> {
 
 		self.push_line(&format!("{send_events} = {send_events},"));
 
+		if self.config.limits_client_packets() {
+			self.push_return_packet_refused_callback();
+		}
+
 		self.config.traverse_namespaces(
 			self,
 			|this, diff| {
@@ -1625,8 +1712,74 @@ impl<'src> ServerOutput<'src> {
 		self.push_line("Players.PlayerRemoving:Connect(function(player)");
 		self.indent();
 		self.push_line("player_map[player] = nil");
+
+		if self.counts_client_events() {
+			self.push_line("player_event_frames[player] = nil");
+			self.push_line("player_events_left[player] = nil");
+		}
+
 		self.dedent();
 		self.push_line("end)");
+	}
+
+	fn counts_client_events(&self) -> bool {
+		self.config.max_client_events_per_frame.is_some()
+			&& self.config.server_reliable_count() + self.config.server_unreliable_count() > 0
+	}
+
+	fn push_packet_refusal(&mut self) {
+		if !self.config.limits_client_packets() {
+			return;
+		}
+
+		self.push_line(&format!(
+			"local packet_refused_callback: ((Player, {REFUSED_REASON_TY}) -> ())? = nil"
+		));
+		self.push("\n");
+		self.push_line(&format!(
+			"local function refuse_packet(player: Player, reason: {REFUSED_REASON_TY})"
+		));
+		self.indent();
+		self.push_line("if packet_refused_callback then");
+		self.indent();
+		self.push_line("packet_refused_callback(player, reason)");
+		self.dedent();
+		self.push_line("end");
+		self.dedent();
+		self.push_line("end");
+		self.push("\n");
+
+		let Some(max_events) = self.config.max_client_events_per_frame else {
+			return;
+		};
+
+		if !self.counts_client_events() {
+			return;
+		}
+
+		self.push_line("local event_frame = 0");
+		self.push_line("local player_event_frames: { [Player]: number } = {}");
+		self.push_line("local player_events_left: { [Player]: number } = {}");
+		self.push("\n");
+		self.push_line("RunService.Heartbeat:Connect(function()");
+		self.indent();
+		self.push_line("event_frame += 1");
+		self.dedent();
+		self.push_line("end)");
+		self.push("\n");
+		self.push_line("local function events_left_this_frame(player: Player): number");
+		self.indent();
+		self.push_line("if player_event_frames[player] == event_frame then");
+		self.indent();
+		self.push_line("return player_events_left[player]");
+		self.dedent();
+		self.push_line("end");
+		self.push_line("player_event_frames[player] = event_frame");
+		self.push_line(&format!("player_events_left[player] = {max_events}"));
+		self.push_line(&format!("return {max_events}"));
+		self.dedent();
+		self.push_line("end");
+		self.push("\n");
 	}
 
 	pub fn output(mut self) -> String {
@@ -1646,6 +1799,8 @@ impl<'src> ServerOutput<'src> {
 		self.push_studio();
 
 		self.push_create_remotes();
+
+		self.push_packet_refusal();
 
 		self.push_player_map();
 

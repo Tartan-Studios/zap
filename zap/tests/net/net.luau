@@ -937,6 +937,7 @@ local NAMES = {
 		Call = "Call",
 		Iter = "Iter",
 		SendEvents = "SendEvents",
+		SetPacketRefusedCallback = "SetPacketRefusedCallback",
 	},
 	Camel = {
 		Fire = "fire",
@@ -949,6 +950,7 @@ local NAMES = {
 		Call = "call",
 		Iter = "iter",
 		SendEvents = "sendEvents",
+		SetPacketRefusedCallback = "setPacketRefusedCallback",
 	},
 	Snake = {
 		Fire = "fire",
@@ -961,6 +963,7 @@ local NAMES = {
 		Call = "call",
 		Iter = "iter",
 		SendEvents = "send_events",
+		SetPacketRefusedCallback = "set_packet_refused_callback",
 	},
 }
 local N = NAMES[SCHEMA.casing]
@@ -1005,7 +1008,20 @@ end)
 roblox.implementMethod("RunService", "IsClient", function()
 	return CLIENT_CHUNKS[chunk(2)] == true
 end)
-roblox.implementProperty("RunService", "Heartbeat", noopSignal)
+local heartbeats: { [string]: { () -> () } } = { Server = {}, Client = {}, LooseClient = {} }
+roblox.implementProperty("RunService", "Heartbeat", function()
+	return {
+		Connect = function(_, handler)
+			table.insert(heartbeats[chunk(2)], handler)
+		end,
+	}
+end)
+
+local function nextServerFrame()
+	for _, handler in heartbeats.Server do
+		handler()
+	end
+end
 roblox.implementProperty("Players", "PlayerRemoving", noopSignal)
 roblox.implementMethod("Players", "GetPlayers", function()
 	return table.clone(players)
@@ -1102,6 +1118,7 @@ local recipients: { [string]: number } = {}
 
 local function pump()
 	for _ = 1, 8 do
+		nextServerFrame()
 		server[N.SendEvents]()
 		client[N.SendEvents]()
 		looseClient[N.SendEvents]()
@@ -1700,6 +1717,7 @@ local function fuzz()
 			inst[index] = if chance(0.8) then pick(pool) else nil
 		end
 		serverErrors = {}
+		nextServerFrame()
 		deliverToServer({ remote = remote, from = "Fuzz", buff = buff, inst = inst })
 		local arrived = false
 		for _, fn in callableFunctions do
@@ -1736,6 +1754,171 @@ local function fuzz()
 	line(`fuzz: {FUZZ_BUFFERS} messages, {accepted} reached game code and all matched their types, {rejected} refused`)
 end
 
+local LIMITS = SCHEMA.limits
+local CAP = LIMITS.eventsPerFrame
+local BYTES = LIMITS.packetBytes
+local FLOOD_BYTES = 1048576
+
+type Refusal = { player: Instance, reason: string }
+
+local refusals: { Refusal } = {}
+if CAP or BYTES then
+	server[N.SetPacketRefusedCallback](function(player, reason)
+		table.insert(refusals, { player = player, reason = reason })
+	end)
+end
+
+local function takeRefusals(): string
+	local counts = {}
+	for _, refusal in refusals do
+		local key = `{refusal.player.Name} {refusal.reason}`
+		counts[key] = (counts[key] or 0) + 1
+	end
+	refusals = {}
+	local names = {}
+	for key, count in counts do
+		table.insert(names, if count == 1 then key else `{key} x{count}`)
+	end
+	table.sort(names)
+	return table.concat(names, ", ")
+end
+
+local function sendWithoutDelivering(sender, event, count: number): { Message }
+	local api = member(sender, event.path)
+	for _ = 1, count do
+		local values = generateArgs(event.params)
+		api[N.Fire](table.unpack(values, 1, values.n))
+	end
+	sender[N.SendEvents]()
+	local messages = toServer
+	toServer = {}
+	return messages
+end
+
+local function deliverInOneFrame(...: { Message })
+	nextServerFrame()
+	serverErrors = {}
+	for _, messages in { ... } do
+		for _, message in messages do
+			deliverToServer(message)
+		end
+	end
+end
+
+local function countBySender(inbox: { Received }, player: Instance): number
+	local count = 0
+	for _, item in inbox do
+		if item.player == player then
+			count += 1
+		end
+	end
+	return count
+end
+
+local function expectFlood(label: string, counted: { { event: any, player: Instance, expected: number } }, expectedRefusals: string)
+	local parts = {}
+	local mismatched = false
+	local inboxes = {}
+	for _, entry in counted do
+		if not inboxes[entry.event] then
+			inboxes[entry.event] = collect(entry.event, receiverOf(entry.event))
+		end
+	end
+	for _, entry in counted do
+		local arrived = countBySender(inboxes[entry.event], entry.player)
+		table.insert(parts, `{arrived} {pathName(entry.event.path)} from {entry.player.Name}`)
+		if arrived ~= entry.expected then
+			mismatched = true
+			fail(`{label}: {arrived} {pathName(entry.event.path)} arrived from {entry.player.Name}, expected {entry.expected}`)
+		end
+	end
+	local refused = takeRefusals()
+	if refused ~= expectedRefusals then
+		fail(`{label}: refused [{refused}], expected [{expectedRefusals}]`)
+	elseif #serverErrors > 0 then
+		fail(`{label}: the server raised {table.concat(serverErrors, " | ")}`)
+	end
+	line(`{label}: {table.concat(parts, ", ")} arrived; refused [{refused}]{if mismatched then " MISMATCH" else ""}`)
+end
+
+local function rawPacket(remote: string, bytes: string): { Message }
+	return { { remote = remote, from = "LooseClient", buff = buffer.fromstring(bytes), inst = {} } }
+end
+
+local function firstClientEvent(reliability: string): any?
+	local best
+	for _, event in runnable do
+		if event.from == "Client" and (event.reliability == reliability or (reliability == "Unreliable" and event.reliability == "OrderedUnreliable")) then
+			if not best or #event.params < #best.params then
+				best = event
+			end
+		end
+	end
+	return best
+end
+
+local function floodLimits()
+	if not CAP and not BYTES then
+		return
+	end
+	local reliable = firstClientEvent("Reliable")
+	local unreliable = firstClientEvent("Unreliable")
+	if CAP and reliable then
+		deliverInOneFrame(sendWithoutDelivering(looseClient, reliable, CAP + 10), sendWithoutDelivering(client, reliable, 1))
+		expectFlood(
+			`one packet of {CAP + 10} events beside another player's event`,
+			{ { event = reliable, player = P2, expected = CAP }, { event = reliable, player = P1, expected = 1 } },
+			"Player2 TooManyEvents"
+		)
+		deliverInOneFrame(sendWithoutDelivering(looseClient, reliable, CAP))
+		expectFlood(`the next frame, exactly {CAP} events`, { { event = reliable, player = P2, expected = CAP } }, "")
+		deliverInOneFrame(sendWithoutDelivering(looseClient, reliable, CAP - 3), sendWithoutDelivering(looseClient, reliable, 10))
+		expectFlood(`two packets of {CAP - 3} and 10 events in one frame`, { { event = reliable, player = P2, expected = CAP } }, "Player2 TooManyEvents")
+	end
+	if CAP and unreliable then
+		deliverInOneFrame(sendWithoutDelivering(looseClient, unreliable, CAP + 3))
+		expectFlood(`{CAP + 3} unreliable packets in one frame`, { { event = unreliable, player = P2, expected = CAP } }, "Player2 TooManyEvents x3")
+		if reliable then
+			deliverInOneFrame(sendWithoutDelivering(looseClient, unreliable, CAP - 1), sendWithoutDelivering(looseClient, reliable, 5))
+			expectFlood(
+				`{CAP - 1} unreliable packets then a reliable packet of 5 events in one frame`,
+				{ { event = unreliable, player = P2, expected = CAP - 1 }, { event = reliable, player = P2, expected = 1 } },
+				"Player2 TooManyEvents"
+			)
+		end
+	end
+	if reliable then
+		local one = sendWithoutDelivering(looseClient, reliable, 1)[1]
+		local unit = buffer.tostring(one.buff)
+		if #reliable.params == 0 then
+			local flood = string.rep(unit, math.ceil(FLOOD_BYTES / #unit))
+			deliverInOneFrame(rawPacket(one.remote, flood))
+			expectFlood(
+				`a {#flood} byte packet of {#flood // #unit} events`,
+				{ { event = reliable, player = P2, expected = if BYTES then 0 else math.min(CAP, #flood // #unit) } },
+				if BYTES then "Player2 PacketTooLarge" else "Player2 TooManyEvents"
+			)
+		end
+		if BYTES then
+			local fitting = BYTES // #unit
+			deliverInOneFrame(rawPacket(one.remote, string.rep(unit, fitting)))
+			expectFlood(
+				`a {fitting * #unit} byte packet within the {BYTES} byte limit`,
+				{ { event = reliable, player = P2, expected = if CAP then math.min(CAP, fitting) else fitting } },
+				if CAP and fitting > CAP then "Player2 TooManyEvents" else ""
+			)
+			deliverInOneFrame(rawPacket(one.remote, string.rep("\0", BYTES + 1)))
+			expectFlood(`a reliable packet of {BYTES + 1} bytes`, { { event = reliable, player = P2, expected = 0 } }, "Player2 PacketTooLarge")
+		end
+	end
+	if BYTES and unreliable then
+		local one = sendWithoutDelivering(looseClient, unreliable, 1)[1]
+		collect(unreliable, receiverOf(unreliable))
+		deliverInOneFrame(rawPacket(one.remote, string.rep("\0", BYTES + 1)))
+		expectFlood(`an unreliable packet of {BYTES + 1} bytes`, { { event = unreliable, player = P2, expected = 0 } }, "Player2 PacketTooLarge")
+	end
+end
+
 for _, event in runnable do
 	roundTrip(event)
 end
@@ -1755,4 +1938,12 @@ for _, event in runnable do
 	utf8Limits(event)
 end
 fuzz()
+if CAP or BYTES then
+	local refused = takeRefusals()
+	if refused ~= "" then
+		fail(`ordinary traffic was refused: {refused}`)
+	end
+	line(`ordinary traffic: {if refused == "" then "nothing refused" else "REFUSED"}`)
+end
+floodLimits()
 finish()

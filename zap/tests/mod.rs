@@ -4,6 +4,7 @@ pub mod luau_tools;
 pub mod lune;
 pub mod native;
 pub mod net;
+pub mod packet_limits;
 pub mod selene;
 pub mod stable_output;
 pub mod types;

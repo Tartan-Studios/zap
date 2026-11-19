@@ -1,0 +1,30 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/files/packet_limits.zap
+---
+round trip Aim (Client, Reliable, SingleAsync): 12/12
+round trip Look (Client, OrderedUnreliable, Polling): 12/12
+round trip Score (Server, Reliable, ManyAsync): 12/12
+round trip Steer (Client, Unreliable, SingleSync): 12/12
+round trip Tap (Client, Reliable, ManySync): 12/12
+burst of 20 Server events in one frame: all arrived in order
+burst of 20 Client events in one frame: all arrived in order
+function Ask (Sync): 12/12
+hostile Aim: refused 8 of 8, 0 not sendable
+hostile Look: nothing to break
+hostile Steer: nothing to break
+hostile Tap: nothing to break
+hostile function Ask: nothing to break
+utf8 Aim argument 1 field label (..8): accepted [8 four-byte], refused [9 one-byte, 9 two-byte]
+fuzz: 300 messages, 161 reached game code and all matched their types, 139 refused
+ordinary traffic: nothing refused
+one packet of 74 events beside another player's event: 64 Tap from Player2, 1 Tap from Player1 arrived; refused [Player2 TooManyEvents]
+the next frame, exactly 64 events: 64 Tap from Player2 arrived; refused []
+two packets of 61 and 10 events in one frame: 64 Tap from Player2 arrived; refused [Player2 TooManyEvents]
+67 unreliable packets in one frame: 64 Steer from Player2 arrived; refused [Player2 TooManyEvents x3]
+63 unreliable packets then a reliable packet of 5 events in one frame: 63 Steer from Player2, 1 Tap from Player2 arrived; refused [Player2 TooManyEvents]
+a 1048576 byte packet of 1048576 events: 0 Tap from Player2 arrived; refused [Player2 PacketTooLarge]
+a 1024 byte packet within the 1024 byte limit: 64 Tap from Player2 arrived; refused [Player2 TooManyEvents]
+a reliable packet of 1025 bytes: 0 Tap from Player2 arrived; refused [Player2 PacketTooLarge]
+an unreliable packet of 1025 bytes: 0 Steer from Player2 arrived; refused [Player2 PacketTooLarge]
