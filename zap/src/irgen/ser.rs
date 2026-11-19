@@ -1,5 +1,5 @@
 use crate::{
-	config::{Enum, NumTy, PrimitiveTy, Struct, Ty, TypeScriptEnumType},
+	config::{Enum, NumTy, PrimitiveTy, Struct, Ty, TypeScriptEnumType, string_bytes},
 	irgen::{BitpackMask, OutputBuffer, Scope, VariantStorageKind},
 };
 use std::collections::HashMap;
@@ -323,14 +323,15 @@ impl Ser<'_> {
 					self.push_writestring(from_expr, len.into());
 				} else {
 					let (len_name, len_expr) = self.add_occurrence("len");
-					let (len_numty, len_offset) = range.numty();
+					let (len_numty, len_offset) = string_bytes(*utf8, *range).numty();
 
 					self.push_local(len_name.clone(), Some(from_expr.clone().len()));
 
 					if self.checks {
-						self.push_range_check(len_expr.clone(), *range);
 						if *utf8 {
-							self.push_utf8_check(from_expr.clone());
+							self.push_utf8_length_check(from_expr.clone(), *range);
+						} else {
+							self.push_range_check(len_expr.clone(), *range);
 						}
 					}
 

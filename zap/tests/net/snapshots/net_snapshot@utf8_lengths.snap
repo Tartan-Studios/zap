@@ -1,0 +1,24 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/net/files/utf8_lengths.zap
+---
+round trip Chat (Client, Reliable, ManyAsync): 12/12
+round trip Echo (Server, Reliable, ManySync): 12/12
+round trip Profile (Client, Reliable, SingleSync): 12/12
+round trip Rename (Client, Reliable, SingleSync): 12/12
+round trip Shout (Client, Unreliable, SingleSync): 12/12
+burst of 20 Server events in one frame: all arrived in order
+burst of 20 Client events in one frame: all arrived in order
+hostile Chat: refused 8 of 8, 0 not sendable
+hostile Profile: refused 8 of 8, 0 not sendable
+hostile Rename: refused 8 of 8, 0 not sendable
+hostile Shout: refused 8 of 8, 0 not sendable
+utf8 Chat argument 1 (..16): accepted [16 four-byte], refused [17 one-byte, 17 two-byte]
+utf8 Echo argument 1 (..16): accepted [16 four-byte], refused [17 one-byte, 17 two-byte]
+utf8 Profile argument 1 field name (3..20): accepted [20 four-byte, 3 four-byte], refused [21 one-byte, 21 two-byte, 2 four-byte]
+utf8 Profile argument 1 field code (5..5): accepted [5 four-byte], refused [6 one-byte, 6 two-byte, 4 four-byte]
+utf8 Rename argument 1 (3..20): accepted [20 four-byte, 3 four-byte], refused [21 one-byte, 21 two-byte, 2 four-byte]
+utf8 Rename argument 2 (5..5): accepted [5 four-byte], refused [6 one-byte, 6 two-byte, 4 four-byte]
+utf8 Shout argument 1 (1..4): accepted [4 four-byte, 1 four-byte], refused [5 one-byte, 5 two-byte]
+fuzz: 300 messages, 80 reached game code and all matched their types, 220 refused

@@ -777,8 +777,7 @@ impl<'src> Converter<'src> {
 				Ty::Str(
 					utf8,
 					len.map(|range| self.checked_range_within(&range, 0.0, u16::MAX as f64))
-						.unwrap_or_default()
-						.mul_max(if utf8 { 4.0 } else { 1.0 }),
+						.unwrap_or_default(),
 				)
 			}
 

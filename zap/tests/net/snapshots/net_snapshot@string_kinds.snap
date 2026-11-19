@@ -8,4 +8,4 @@ round trip Utf8 (Client, Reliable, SingleSync): 12/12
 burst of 20 Client events in one frame: all arrived in order
 hostile Binary: nothing to break
 hostile Utf8: refused 8 of 8, 0 not sendable
-fuzz: 300 messages, 69 reached game code and all matched their types, 231 refused
+fuzz: 300 messages, 70 reached game code and all matched their types, 230 refused

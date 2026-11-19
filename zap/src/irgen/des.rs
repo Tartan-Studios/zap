@@ -1,5 +1,5 @@
 use crate::{
-	config::{Enum, NumTy, PrimitiveTy, Struct, Ty, TypeScriptEnumType},
+	config::{Enum, NumTy, PrimitiveTy, Struct, Ty, TypeScriptEnumType, string_bytes},
 	irgen::{BitpackMask, OutputBuffer, Scope, VariantStorageKind},
 };
 use std::collections::HashMap;
@@ -246,7 +246,7 @@ impl Des<'_> {
 					self.push_assign(into, self.readstring(len.into()));
 				} else {
 					let (len_name, len_expr) = self.add_occurrence("len");
-					let (len_numty, len_offset) = range.numty();
+					let (len_numty, len_offset) = string_bytes(*utf8, *range).numty();
 
 					let mut offset_len_expr = self.readnumty(len_numty);
 					if len_offset != 0.0 {
@@ -255,14 +255,18 @@ impl Des<'_> {
 
 					self.push_local(len_name.clone(), Some(offset_len_expr));
 
-					if self.checks {
+					if self.checks && !utf8 {
 						self.push_range_check(len_expr.clone(), *range);
 					}
 
 					self.push_assign(into.clone(), self.readstring(len_expr.clone()));
 
 					if *utf8 {
-						self.push_utf8_check(Expr::Var(into.into()));
+						if self.checks {
+							self.push_utf8_length_check(Expr::Var(into.into()), *range);
+						} else {
+							self.push_utf8_check(Expr::Var(into.into()));
+						}
 					}
 				}
 			}

@@ -11,7 +11,7 @@ use lune::Runtime;
 use zap::{
 	config::{
 		Casing, Config, Enum, EvCall, EvSource, EvType, FnCall, NumTy, Parameter, Range, Struct, Ty,
-		TypeScriptEnumType, YieldType,
+		TypeScriptEnumType, YieldType, string_bytes,
 	},
 	parser,
 };
@@ -98,7 +98,7 @@ impl Describer {
 			Ty::Str(utf8, range) => format!(
 				"{{ kind = \"str\", utf8 = {utf8}, range = {}, cap = {} }}",
 				lua_range(range),
-				length_cap(range, !utf8)
+				length_cap(&string_bytes(*utf8, *range), !utf8)
 			),
 			Ty::Buf(range) => format!(
 				"{{ kind = \"buf\", range = {}, cap = {} }}",

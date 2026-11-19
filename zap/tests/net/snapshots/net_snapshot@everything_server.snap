@@ -11,3 +11,6 @@ round trip Ping (Server, Reliable, SingleSync): 12/12
 round trip Polled (Server, Reliable, Polling): 12/12
 round trip Tuple (Server, Reliable, ManySync): 12/12
 burst of 20 Server events in one frame: all arrived in order
+utf8 Deep.Deeper.Note argument 1 field label (1..12): accepted [12 four-byte, 1 four-byte], refused [13 one-byte, 13 two-byte]
+utf8 Polled argument 1 (..12): accepted [12 four-byte], refused [13 one-byte, 13 two-byte]
+utf8 Tuple argument 2 (..12): accepted [12 four-byte], refused [13 one-byte, 13 two-byte]
