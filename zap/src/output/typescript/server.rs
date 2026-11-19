@@ -192,6 +192,17 @@ impl<'src> ServerOutput<'src> {
 		self.push(") => void\n");
 	}
 
+	fn push_packet_refused_callback(&mut self) {
+		let callback = self.config.casing.with("Callback", "callback", "callback");
+		let player = self.config.casing.with("Player", "player", "player");
+		let reason = self.config.casing.with("Reason", "reason", "reason");
+
+		self.push_line(&format!(
+			"export declare const {}: ({callback}: ({player}: Player, {reason}: \"PacketTooLarge\" | \"TooManyEvents\") => void) => () => void",
+			self.config.packet_refused_callback_name()
+		));
+	}
+
 	fn push_return(&mut self) {
 		let iter = self.config.casing.with("Iter", "iter", "iter");
 		let index = self.config.casing.with("Index", "index", "index");
@@ -345,6 +356,10 @@ impl<'src> ServerOutput<'src> {
 		};
 
 		self.push_event_loop();
+
+		if self.config.limits_client_packets() {
+			self.push_packet_refused_callback();
+		}
 
 		self.push_tydecls();
 

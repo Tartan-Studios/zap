@@ -168,6 +168,25 @@ Zap.MyEvent.FireSet({
 })
 ```
 
+## Refused Packets
+
+### SetPacketRefusedCallback
+
+When [`max_client_packet_bytes`](../config/options.md#max-client-packet-bytes) or [`max_client_events_per_frame`](../config/options.md#max-client-events-per-frame) is set, the server module has a `SetPacketRefusedCallback` function. The callback runs each time the server refuses a packet from a client, with the player who sent it and the reason:
+
+- `"PacketTooLarge"`: the packet was larger than `max_client_packet_bytes`, so none of it was read.
+- `"TooManyEvents"`: the player reached `max_client_events_per_frame` this frame, so the rest of the packet was dropped.
+
+There is a single callback per server module. Setting it again replaces the previous one, and it returns a function that removes it. The reasons are always these exact strings, whatever the casing option.
+
+```lua
+Zap.SetPacketRefusedCallback(function(Player: Player, Reason: "PacketTooLarge" | "TooManyEvents")
+    warn(`Refused a packet from {Player.Name}: {Reason}`)
+end)
+```
+
+The callback runs once the server has stopped reading the packet, so it can safely kick the player, log or yield. A client that keeps flooding calls it once per refused packet.
+
 ## Function API
 
 In this section, we use the following Zap file as an example.

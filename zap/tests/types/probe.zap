@@ -1,5 +1,7 @@
 opt disable_fire_except = true
 opt disable_fire_set = true
+opt max_client_packet_bytes = 4096
+opt max_client_events_per_frame = 128
 
 type Kind = enum { Small, Large }
 

@@ -227,6 +227,8 @@ impl<'src> Converter<'src> {
 		let (disable_fire_all, ..) = self.boolean_opt("disable_fire_all", false, &config.opts);
 		let (disable_fire_except, ..) = self.boolean_opt("disable_fire_except", false, &config.opts);
 		let (disable_fire_set, ..) = self.boolean_opt("disable_fire_set", false, &config.opts);
+		let max_client_packet_bytes = self.limit_opt("max_client_packet_bytes", &config.opts);
+		let max_client_events_per_frame = self.limit_opt("max_client_events_per_frame", &config.opts);
 
 		let config = Config {
 			tydecls: std::mem::take(&mut self.all_tydecls).into_values().collect(),
@@ -258,10 +260,12 @@ impl<'src> Converter<'src> {
 			disable_fire_all,
 			disable_fire_except,
 			disable_fire_set,
+			max_client_packet_bytes,
+			max_client_events_per_frame,
 		};
 
 		self.check_empty_file(&config);
-		self.check_conflicting_exports(casing);
+		self.check_conflicting_exports(&config);
 
 		(config, self.reports)
 	}
@@ -447,6 +451,22 @@ impl<'src> Converter<'src> {
 		(value, span)
 	}
 
+	fn limit_opt(&mut self, name: &'static str, opts: &[SyntaxOpt<'src>]) -> Option<u32> {
+		let (value, span) = self.num_opt(name, 0.0, opts);
+		let span = span?;
+
+		if value.fract() != 0.0 || value < 1.0 || value > u32::MAX as f64 {
+			self.report(Report::AnalyzeInvalidOptValue {
+				span,
+				expected: "a whole number from 1 to 4294967295",
+			});
+
+			return None;
+		}
+
+		Some(value as u32)
+	}
+
 	fn num_opt(&mut self, name: &'static str, default: f64, opts: &[SyntaxOpt<'src>]) -> (f64, Option<Span>) {
 		let mut value = default;
 		let mut span = None;
@@ -531,13 +551,17 @@ impl<'src> Converter<'src> {
 		}
 	}
 
-	fn check_conflicting_exports(&mut self, casing: Casing) {
-		let send_events = casing.with("SendEvents", "sendEvents", "send_events");
+	fn check_conflicting_exports(&mut self, config: &Config<'src>) {
+		let send_events = config.casing.with("SendEvents", "sendEvents", "send_events");
+		let packet_refused_callback = config
+			.limits_client_packets()
+			.then(|| config.packet_refused_callback_name());
+		let exported = |name: &str| name == send_events || Some(name) == packet_refused_callback;
 
 		// we can do self.config.decls instead of traverse_namespaces as we're only interested in checking at the top level!
 		let report = self.config.decls.iter().find_map(|decl| match decl {
 			SyntaxDecl::Ev(evdecl) => {
-				if evdecl.name.name == send_events {
+				if exported(evdecl.name.name) {
 					return Some(Report::AnalyzeConflictingExport {
 						span: evdecl.span(),
 						name: evdecl.name.name,
@@ -546,7 +570,7 @@ impl<'src> Converter<'src> {
 				None
 			}
 			SyntaxDecl::Fn(fndecl) => {
-				if fndecl.name.name == send_events {
+				if exported(fndecl.name.name) {
 					return Some(Report::AnalyzeConflictingExport {
 						span: fndecl.span(),
 						name: fndecl.name.name,
@@ -555,7 +579,7 @@ impl<'src> Converter<'src> {
 				None
 			}
 			SyntaxDecl::Ns(nsdecl) => {
-				if nsdecl.name.name == send_events {
+				if exported(nsdecl.name.name) {
 					return Some(Report::AnalyzeConflictingExport {
 						span: nsdecl.span(),
 						name: nsdecl.name.name,
