@@ -1937,7 +1937,6 @@ local function floodLimits()
 end
 
 local function deliverMalformed(remote: string, buff: any, inst: any)
-	nextServerFrame()
 	serverErrors = {}
 	local ok, why = pcall(handlers.Server[remote], P2, buff, inst)
 	if not ok then
@@ -1964,12 +1963,24 @@ local function malformedPackets()
 				{ label = "an Instance for its instances", buff = real.buff, inst = Instance.new("Folder") },
 			}
 			collect(event, receiverOf(event))
+			nextServerFrame()
 			for _, case in cases do
 				deliverMalformed(real.remote, case.buff, case.inst)
 				expectFlood(`{article} {kind} packet with {case.label}`, { { event = event, player = P2, expected = 0 } }, "Player2 MalformedPacket")
 			end
-			deliverInOneFrame({ real })
-			expectFlood(`the real {kind} packet after them`, { { event = event, player = P2, expected = 1 } }, "")
+			if CAP then
+				for _ = 1, CAP do
+					deliverMalformed(real.remote, nil, {})
+				end
+				expectFlood(
+					`{CAP} more malformed {kind} packets in the same frame`,
+					{ { event = event, player = P2, expected = 0 } },
+					`Player2 MalformedPacket x{CAP}`
+				)
+			end
+			serverErrors = {}
+			deliverToServer(real)
+			expectFlood(`the real {kind} packet in the same frame`, { { event = event, player = P2, expected = 1 } }, "")
 		end
 	end
 end
