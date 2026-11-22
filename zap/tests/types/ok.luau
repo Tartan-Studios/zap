@@ -46,3 +46,13 @@ local stopHearingRefusals = server.SetPacketRefusedCallback(function(from: Playe
 	end
 end)
 stopHearingRefusals()
+
+local counters = server.GetTrafficCounters()
+local scored = counters.Scored
+local scoredReceived: number = scored.Received
+local scoredReceivedBytes: number = scored.ReceivedBytes
+local scoredSent: number = scored.Sent
+local scoredSentBytes: number = scored.SentBytes
+for name: string, counter in server.GetTrafficCounters() do
+	local total: number = counter.ReceivedBytes + counter.SentBytes
+end

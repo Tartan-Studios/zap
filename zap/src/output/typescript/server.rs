@@ -205,6 +205,21 @@ impl<'src> ServerOutput<'src> {
 		));
 	}
 
+	fn push_traffic_counters(&mut self) {
+		let received = self.config.casing.with("Received", "received", "received");
+		let received_bytes = self
+			.config
+			.casing
+			.with("ReceivedBytes", "receivedBytes", "received_bytes");
+		let sent = self.config.casing.with("Sent", "sent", "sent");
+		let sent_bytes = self.config.casing.with("SentBytes", "sentBytes", "sent_bytes");
+
+		self.push_line(&format!(
+			"export declare const {}: () => {{ [name: string]: {{ {received}: number; {received_bytes}: number; {sent}: number; {sent_bytes}: number }} }}",
+			self.config.traffic_counters_name()
+		));
+	}
+
 	fn push_return(&mut self) {
 		let iter = self.config.casing.with("Iter", "iter", "iter");
 		let index = self.config.casing.with("Index", "index", "index");
@@ -361,6 +376,10 @@ impl<'src> ServerOutput<'src> {
 
 		if self.config.limits_client_packets() {
 			self.push_packet_refused_callback();
+		}
+
+		if self.config.traffic_counters {
+			self.push_traffic_counters();
 		}
 
 		self.push_tydecls();

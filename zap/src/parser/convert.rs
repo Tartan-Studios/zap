@@ -229,6 +229,7 @@ impl<'src> Converter<'src> {
 		let (disable_fire_set, ..) = self.boolean_opt("disable_fire_set", false, &config.opts);
 		let max_client_packet_bytes = self.limit_opt("max_client_packet_bytes", &config.opts);
 		let max_client_events_per_frame = self.limit_opt("max_client_events_per_frame", &config.opts);
+		let (traffic_counters, ..) = self.boolean_opt("traffic_counters", false, &config.opts);
 
 		let config = Config {
 			tydecls: std::mem::take(&mut self.all_tydecls).into_values().collect(),
@@ -262,6 +263,7 @@ impl<'src> Converter<'src> {
 			disable_fire_set,
 			max_client_packet_bytes,
 			max_client_events_per_frame,
+			traffic_counters,
 		};
 
 		self.check_empty_file(&config);
@@ -556,7 +558,9 @@ impl<'src> Converter<'src> {
 		let packet_refused_callback = config
 			.limits_client_packets()
 			.then(|| config.packet_refused_callback_name());
-		let exported = |name: &str| name == send_events || Some(name) == packet_refused_callback;
+		let traffic_counters = config.traffic_counters.then(|| config.traffic_counters_name());
+		let exported =
+			|name: &str| name == send_events || Some(name) == packet_refused_callback || Some(name) == traffic_counters;
 
 		// we can do self.config.decls instead of traverse_namespaces as we're only interested in checking at the top level!
 		let report = self.config.decls.iter().find_map(|decl| match decl {

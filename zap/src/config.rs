@@ -59,6 +59,7 @@ pub struct Config<'src> {
 	pub disable_fire_set: bool,
 	pub max_client_packet_bytes: Option<u32>,
 	pub max_client_events_per_frame: Option<u32>,
+	pub traffic_counters: bool,
 }
 
 impl<'src> Config<'src> {
@@ -170,6 +171,11 @@ impl<'src> Config<'src> {
 			"setPacketRefusedCallback",
 			"set_packet_refused_callback",
 		)
+	}
+
+	pub fn traffic_counters_name(&self) -> &'static str {
+		self.casing
+			.with("GetTrafficCounters", "getTrafficCounters", "get_traffic_counters")
 	}
 
 	pub fn server_reliable_ty(&self) -> NumTy {

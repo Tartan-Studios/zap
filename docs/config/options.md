@@ -456,3 +456,17 @@ No limit.
 ### Example
 
 <CodeBlock code="opt max_client_events_per_frame = 256" />
+
+## `traffic_counters`
+
+This option makes the server module count, for every event and function, how many times it was received and sent and how many bytes that took, since the module loaded. Read the counts with [`GetTrafficCounters`](../usage/generated-api.md#gettrafficcounters), for example to report each event's traffic to your analytics.
+
+The counts live in one buffer and each send or receive adds to it in place, so the cost is small, but it is not zero: every place that sends or receives an event gains two writes. The client module does not change.
+
+### Default
+
+`false`
+
+### Example
+
+<CodeBlock code="opt traffic_counters = true" />
