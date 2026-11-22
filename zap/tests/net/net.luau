@@ -1919,6 +1919,44 @@ local function floodLimits()
 	end
 end
 
+local function deliverMalformed(remote: string, buff: any, inst: any)
+	nextServerFrame()
+	serverErrors = {}
+	local ok, why = pcall(handlers.Server[remote], P2, buff, inst)
+	if not ok then
+		table.insert(serverErrors, tostring(why))
+	end
+end
+
+local function malformedPackets()
+	if not CAP and not BYTES then
+		return
+	end
+	for _, reliability in { "Reliable", "Unreliable" } do
+		local event = firstClientEvent(reliability)
+		if event then
+			local real = sendWithoutDelivering(looseClient, event, 1)[1]
+			local kind = string.lower(reliability)
+			local article = if reliability == "Reliable" then "a" else "an"
+			local cases = {
+				{ label = "no buffer", buff = nil, inst = {} },
+				{ label = "a string buffer", buff = buffer.tostring(real.buff), inst = {} },
+				{ label = "a number buffer", buff = 7, inst = {} },
+				{ label = "no instances", buff = real.buff, inst = nil },
+				{ label = "a string for its instances", buff = real.buff, inst = "instances" },
+				{ label = "an Instance for its instances", buff = real.buff, inst = Instance.new("Folder") },
+			}
+			collect(event, receiverOf(event))
+			for _, case in cases do
+				deliverMalformed(real.remote, case.buff, case.inst)
+				expectFlood(`{article} {kind} packet with {case.label}`, { { event = event, player = P2, expected = 0 } }, "Player2 MalformedPacket")
+			end
+			deliverInOneFrame({ real })
+			expectFlood(`the real {kind} packet after them`, { { event = event, player = P2, expected = 1 } }, "")
+		end
+	end
+end
+
 for _, event in runnable do
 	roundTrip(event)
 end
@@ -1946,4 +1984,5 @@ if CAP or BYTES then
 	line(`ordinary traffic: {if refused == "" then "nothing refused" else "REFUSED"}`)
 end
 floodLimits()
+malformedPackets()
 finish()
