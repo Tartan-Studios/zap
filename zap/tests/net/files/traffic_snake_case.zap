@@ -22,6 +22,20 @@ event announced = {
 	data: string.utf8(..30),
 }
 
+event rerouted = {
+	from: Server,
+	type: Reliable,
+	call: ManySync,
+	data: (traffic: u8, sent_start: u16, reached: u8, buff_len: u8),
+}
+
+event honked = {
+	from: Server,
+	type: Unreliable,
+	call: ManySync,
+	data: (traffic: u16, reached: u8),
+}
+
 event waved = {
 	from: Server,
 	type: Unreliable,

@@ -128,7 +128,7 @@ fn every_event_and_function_has_a_counter() {
 
 	assert_eq!(names, expected);
 	assert_eq!(
-		count(&generated.server, "local traffic = buffer.create(224)"),
+		count(&generated.server, "local traffic_counters = buffer.create(224)"),
 		1,
 		"seven counters of four f64s each"
 	);
@@ -182,7 +182,10 @@ fn the_api_follows_the_casing() {
 		);
 		for field in fields {
 			assert_eq!(
-				count(&generated.server, &format!("\t{field} = buffer.readf64(traffic, ")),
+				count(
+					&generated.server,
+					&format!("\t{field} = buffer.readf64(traffic_counters, ")
+				),
 				1,
 				"{casing}: {field}"
 			);
@@ -218,4 +221,43 @@ fn the_api_name_is_reserved_only_while_counting() {
 			.any(|message| message == "Zap exports GetTrafficCounters at the top level"),
 		"{messages:?}"
 	);
+}
+
+#[test]
+fn server_event_parameters_cannot_hide_the_counters() {
+	for name in ["traffic_counters", "traffic_sent_start"] {
+		for event in [
+			format!("event Rerouted = {{ from: Server, type: Reliable, call: ManySync, data: ({name}: u8) }}"),
+			format!(
+				"namespace Roads = {{ event Rerouted = {{ from: Server, type: Unreliable, call: ManySync, data: (lane: u8, {name}: u16) }} }}"
+			),
+		] {
+			let messages = zap::run(&format!("opt traffic_counters = true\n{event}"), true)
+				.diagnostics
+				.into_iter()
+				.map(|diagnostic| diagnostic.message)
+				.collect::<Vec<_>>();
+			assert_eq!(
+				messages,
+				[format!(
+					"the traffic counters use the name '{name}' in the server's send methods"
+				)],
+				"{event}"
+			);
+
+			assert!(
+				zap::run(&event, true).diagnostics.is_empty(),
+				"{event} was refused without the option"
+			);
+		}
+
+		let client_event =
+			format!("event Rerouted = {{ from: Client, type: Reliable, call: ManySync, data: ({name}: u8) }}");
+		assert!(
+			zap::run(&format!("opt traffic_counters = true\n{client_event}"), true)
+				.diagnostics
+				.is_empty(),
+			"{client_event} was refused"
+		);
+	}
 }

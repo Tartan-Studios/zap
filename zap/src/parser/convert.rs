@@ -8,7 +8,8 @@ use std::{
 
 use crate::config::{
 	Casing, Config, Enum, EvCall, EvDecl, EvSource, EvType, FnDecl, NamespaceEntry, NonPrimitiveTy, NumTy, Parameter,
-	PrimitiveTy, Range, Struct, Ty, TyDecl, TypeScriptEnumType, UNRELIABLE_ORDER_NUMTY, YieldType,
+	PrimitiveTy, Range, Struct, TRAFFIC_COUNTER_NAMES_IN_SEND_METHODS, Ty, TyDecl, TypeScriptEnumType,
+	UNRELIABLE_ORDER_NUMTY, YieldType,
 };
 
 use super::{
@@ -541,6 +542,34 @@ impl<'src> Converter<'src> {
 		}
 	}
 
+	fn counts_traffic(&self) -> bool {
+		self.config
+			.opts
+			.iter()
+			.rev()
+			.filter(|opt| opt.name.name == "traffic_counters")
+			.find_map(|opt| match &opt.value.kind {
+				SyntaxOptValueKind::Bool(value) => Some(value.value),
+				_ => None,
+			})
+			.unwrap_or(false)
+	}
+
+	fn check_traffic_counter_parameters(&mut self, syntax_parameters: &SyntaxParameters<'src>) {
+		for identifier in syntax_parameters
+			.parameters
+			.iter()
+			.filter_map(|(identifier, _)| *identifier)
+		{
+			if TRAFFIC_COUNTER_NAMES_IN_SEND_METHODS.contains(&identifier.name) {
+				self.report(Report::AnalyzeTrafficCounterParameter {
+					span: identifier.span(),
+					name: identifier.name,
+				});
+			}
+		}
+	}
+
 	fn check_empty_file(&mut self, config: &Config) {
 		let mut has_evdecls = false;
 
@@ -602,6 +631,10 @@ impl<'src> Converter<'src> {
 	fn evdecl(&mut self, evdecl: &SyntaxEvDecl<'src>, id: usize) -> EvDecl<'src> {
 		if let Some(syntax_parameters) = &evdecl.data {
 			self.check_duplicate_parameters(syntax_parameters);
+
+			if evdecl.from == EvSource::Server && self.counts_traffic() {
+				self.check_traffic_counter_parameters(syntax_parameters);
+			}
 		}
 
 		let name = evdecl.name.name;

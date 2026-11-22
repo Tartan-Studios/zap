@@ -196,7 +196,7 @@ When [`traffic_counters`](../config/options.md#traffic-counters) is on, the serv
 
 - `Received`: how many times the server received it. An event in a reliable packet counts once it has been read and handed to its callback, and an unreliable packet once its data has been read. Packets the server refuses through the [packet limits](#refused-packets) never count, and neither does an out-of-order unreliable packet the server drops.
 - `ReceivedBytes`: the bytes those took: the event's id and data in a reliable packet, or the whole unreliable packet.
-- `Sent`: how many times the server sent it, once per player it went to. `FireList` to two players counts two. A function's reply counts here under the function's name.
+- `Sent`: how many times the server sent it, once per player it went to. `FireList` to two players counts two. A function's reply counts here under the function's name. A reliable event counts when it is queued, so one queued for a player who leaves before the next `SendEvents` still counts.
 - `SentBytes`: the bytes those took: what each one added to the player's reliable packet, or the size of the unreliable packet, once per player.
 
 The counts start at zero when the module loads and only ever grow, so keep the last reading and subtract it to get the traffic since then. The field names follow the casing option (`received`, `receivedBytes`, or `received`, `received_bytes`), as does the function's name. Outside a running game, it returns zeros.

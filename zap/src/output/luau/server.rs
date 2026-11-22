@@ -3,7 +3,7 @@ use std::{cmp::max, collections::HashMap, slice};
 use crate::{
 	config::{
 		Config, EvCall, EvDecl, EvSource, EvType, FnCall, FnDecl, NamespaceEntry, PACKET_REFUSED_REASON_TY, Parameter,
-		TyDecl, UNRELIABLE_ORDER_NUMTY,
+		TRAFFIC_COUNTERS_BUFFER, TRAFFIC_SENT_START, TyDecl, UNRELIABLE_ORDER_NUMTY,
 	},
 	irgen::{des, ser},
 	output::{
@@ -138,7 +138,7 @@ impl<'src> ServerOutput<'src> {
 		let sent_bytes = self.config.casing.with("SentBytes", "sentBytes", "sent_bytes");
 
 		self.push_line(&format!(
-			"local traffic = buffer.create({})",
+			"local {TRAFFIC_COUNTERS_BUFFER} = buffer.create({})",
 			slot_count * TRAFFIC_SLOT_BYTES
 		));
 		self.push("\n");
@@ -152,10 +152,14 @@ impl<'src> ServerOutput<'src> {
 		self.push_line(&format!("local at = (slot - 1) * {TRAFFIC_SLOT_BYTES}"));
 		self.push_line("counters[name] = {");
 		self.indent();
-		self.push_line(&format!("{received} = buffer.readf64(traffic, at),"));
-		self.push_line(&format!("{received_bytes} = buffer.readf64(traffic, at + 8),"));
-		self.push_line(&format!("{sent} = buffer.readf64(traffic, at + 16),"));
-		self.push_line(&format!("{sent_bytes} = buffer.readf64(traffic, at + 24),"));
+		self.push_line(&format!("{received} = buffer.readf64({TRAFFIC_COUNTERS_BUFFER}, at),"));
+		self.push_line(&format!(
+			"{received_bytes} = buffer.readf64({TRAFFIC_COUNTERS_BUFFER}, at + 8),"
+		));
+		self.push_line(&format!("{sent} = buffer.readf64({TRAFFIC_COUNTERS_BUFFER}, at + 16),"));
+		self.push_line(&format!(
+			"{sent_bytes} = buffer.readf64({TRAFFIC_COUNTERS_BUFFER}, at + 24),"
+		));
 		self.dedent();
 		self.push_line("}");
 		self.dedent();
@@ -188,13 +192,13 @@ impl<'src> ServerOutput<'src> {
 
 	fn push_add_traffic(&mut self, at: &str, amount: &str) {
 		self.push_line(&format!(
-			"buffer.writef64(traffic, {at}, buffer.readf64(traffic, {at}) + {amount})"
+			"buffer.writef64({TRAFFIC_COUNTERS_BUFFER}, {at}, buffer.readf64({TRAFFIC_COUNTERS_BUFFER}, {at}) + {amount})"
 		));
 	}
 
 	fn push_sent_start(&mut self) {
 		if self.config.traffic_counters {
-			self.push_line("local sent_start = outgoing_used");
+			self.push_line(&format!("local {TRAFFIC_SENT_START} = outgoing_used"));
 		}
 	}
 
@@ -750,7 +754,12 @@ impl<'src> ServerOutput<'src> {
 				self.push_stmts(statements);
 			}
 
-			self.push_count_traffic(&fndecl.display_path(), TRAFFIC_SENT, "1", "outgoing_used - sent_start");
+			self.push_count_traffic(
+				&fndecl.display_path(),
+				TRAFFIC_SENT,
+				"1",
+				&format!("outgoing_used - {TRAFFIC_SENT_START}"),
+			);
 			self.push_line("player_map[player_2] = save()");
 
 			self.dedent();
@@ -779,7 +788,12 @@ impl<'src> ServerOutput<'src> {
 				self.push_stmts(statements);
 			}
 
-			self.push_count_traffic(&fndecl.display_path(), TRAFFIC_SENT, "1", "outgoing_used - sent_start");
+			self.push_count_traffic(
+				&fndecl.display_path(),
+				TRAFFIC_SENT,
+				"1",
+				&format!("outgoing_used - {TRAFFIC_SENT_START}"),
+			);
 			self.push_line("player_map[player] = save()");
 		}
 
@@ -1124,7 +1138,12 @@ impl<'src> ServerOutput<'src> {
 
 		match ev.evty {
 			EvType::Reliable => {
-				self.push_count_traffic(&path, TRAFFIC_SENT, "1", "outgoing_used - sent_start");
+				self.push_count_traffic(
+					&path,
+					TRAFFIC_SENT,
+					"1",
+					&format!("outgoing_used - {TRAFFIC_SENT_START}"),
+				);
 				self.push_line(&format!("player_map[{player}] = save()"));
 			}
 			EvType::Unreliable(ordered) => {
@@ -1209,15 +1228,12 @@ impl<'src> ServerOutput<'src> {
 						ev.id + 1
 					));
 
-					if self.config.traffic_counters {
-						self.push_line("local reached = #Players:GetPlayers()");
-						self.push_count_traffic(
-							&ev.display_path(),
-							TRAFFIC_SENT,
-							"reached",
-							"reached * buffer.len(buff)",
-						);
-					}
+					self.push_count_traffic(
+						&ev.display_path(),
+						TRAFFIC_SENT,
+						"#Players:GetPlayers()",
+						"#Players:GetPlayers() * buffer.len(buff)",
+					);
 				}
 			}
 		}

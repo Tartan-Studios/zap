@@ -43,7 +43,7 @@ a reliable packet with a number buffer: 0 Waved from Player2 arrived; refused [P
 a reliable packet with no instances: 0 Waved from Player2 arrived; refused [Player2 MalformedPacket]
 a reliable packet with a string for its instances: 0 Waved from Player2 arrived; refused [Player2 MalformedPacket]
 a reliable packet with an Instance for its instances: 0 Waved from Player2 arrived; refused [Player2 MalformedPacket]
-64 more malformed reliable packets in the same frame: 0 Waved from Player2 arrived; refused [Player2 MalformedPacket x64]
+64 more of each malformed reliable packet in the same frame: 0 Waved from Player2 arrived; refused [Player2 MalformedPacket x384]
 the real reliable packet in the same frame: 1 Waved from Player2 arrived; refused []
 an unreliable packet with no buffer: 0 Steered from Player2 arrived; refused [Player2 MalformedPacket]
 an unreliable packet with a string buffer: 0 Steered from Player2 arrived; refused [Player2 MalformedPacket]
@@ -51,7 +51,7 @@ an unreliable packet with a number buffer: 0 Steered from Player2 arrived; refus
 an unreliable packet with no instances: 0 Steered from Player2 arrived; refused [Player2 MalformedPacket]
 an unreliable packet with a string for its instances: 0 Steered from Player2 arrived; refused [Player2 MalformedPacket]
 an unreliable packet with an Instance for its instances: 0 Steered from Player2 arrived; refused [Player2 MalformedPacket]
-64 more malformed unreliable packets in the same frame: 0 Steered from Player2 arrived; refused [Player2 MalformedPacket x64]
+64 more of each malformed unreliable packet in the same frame: 0 Steered from Player2 arrived; refused [Player2 MalformedPacket x384]
 the real unreliable packet in the same frame: 1 Steered from Player2 arrived; refused []
 traffic Ask: received 1 (3 bytes), sent 1 (3 bytes)
 traffic Buy: received 1 (16 bytes), sent 1 (7 bytes)

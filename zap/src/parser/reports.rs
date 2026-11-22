@@ -144,6 +144,11 @@ pub enum Report<'src> {
 		name: &'src str,
 	},
 
+	AnalyzeTrafficCounterParameter {
+		span: Span,
+		name: &'src str,
+	},
+
 	DeprecationNoStringDataKind {
 		span: Span,
 	},
@@ -187,6 +192,7 @@ impl Report<'_> {
 			Self::AnalyzeOrNestedOptional { .. } => Severity::Error,
 			Self::AnalyzeRecursiveOr { .. } => Severity::Error,
 			Self::AnalyzeConflictingExport { .. } => Severity::Error,
+			Self::AnalyzeTrafficCounterParameter { .. } => Severity::Error,
 
 			Self::DeprecationNoStringDataKind { .. } => Severity::Warning,
 			Self::DeprecationOldInstanceClassSpecifier { .. } => Severity::Warning,
@@ -228,6 +234,9 @@ impl Report<'_> {
 			Self::AnalyzeOrNestedOptional { .. } => "optional type used in OR".to_string(),
 			Self::AnalyzeRecursiveOr { .. } => "OR used recursively".to_string(),
 			Self::AnalyzeConflictingExport { name, .. } => format!("Zap exports {name} at the top level"),
+			Self::AnalyzeTrafficCounterParameter { name, .. } => {
+				format!("the traffic counters use the name '{name}' in the server's send methods")
+			}
 
 			Self::DeprecationNoStringDataKind { .. } => "string data kind not declared".to_string(),
 			Self::DeprecationOldInstanceClassSpecifier { .. } => "old instance class specifier used".to_string(),
@@ -266,6 +275,7 @@ impl Report<'_> {
 			Self::AnalyzeOrNestedOptional { .. } => "3021",
 			Self::AnalyzeRecursiveOr { .. } => "3022",
 			Self::AnalyzeConflictingExport { .. } => "3023",
+			Self::AnalyzeTrafficCounterParameter { .. } => "3024",
 
 			Self::DeprecationNoStringDataKind { .. } => "4001",
 			Self::DeprecationOldInstanceClassSpecifier { .. } => "4002",
@@ -408,6 +418,8 @@ impl Report<'_> {
 
 			Self::AnalyzeConflictingExport { span, .. } => vec![Label::primary((), span.clone())],
 
+			Self::AnalyzeTrafficCounterParameter { span, .. } => vec![Label::primary((), span.clone())],
+
 			Self::DeprecationNoStringDataKind { span } => vec![Label::primary((), span.clone())],
 
 			Self::DeprecationOldInstanceClassSpecifier { span, .. } => vec![Label::primary((), span.clone())],
@@ -499,6 +511,10 @@ impl Report<'_> {
 			Self::AnalyzeConflictingExport { .. } => Some(vec![
 				"you will need to rename this declaration".to_string(),
 				"or move it inside a namespace".to_string(),
+			]),
+			Self::AnalyzeTrafficCounterParameter { .. } => Some(vec![
+				"a parameter with this name would hide the counters inside the send methods".to_string(),
+				"you will need to rename this parameter".to_string(),
 			]),
 			Self::DeprecationNoStringDataKind { .. } => Some(vec![
 				"this is deprecated and will be removed in a future release".to_string(),
