@@ -2201,6 +2201,13 @@ local function trafficOfRefusals()
 	local before = readTraffic()
 	local expected = zeroTraffic()
 	local parts = {}
+	serverErrors = {}
+	local function deliverFrame(messages: { Message })
+		nextServerFrame()
+		for _, message in messages do
+			deliverToServer(message)
+		end
+	end
 	for _, reliability in { "Reliable", "Unreliable" } do
 		local event = firstClientEvent(reliability)
 		if event then
@@ -2209,17 +2216,17 @@ local function trafficOfRefusals()
 			deliverMalformed(real.remote, nil, {})
 			deliverMalformed(real.remote, real.buff, "instances")
 			if BYTES then
-				deliverInOneFrame(rawPacket(real.remote, string.rep("\0", BYTES + 1)))
+				deliverFrame(rawPacket(real.remote, string.rep("\0", BYTES + 1)))
 			end
 			if CAP and reliability == "Reliable" and (CAP + 10) * buffer.len(real.buff) <= (BYTES or math.huge) then
 				local unit = buffer.tostring(real.buff)
-				deliverInOneFrame(rawPacket(real.remote, string.rep(unit, CAP + 10)))
+				deliverFrame(rawPacket(real.remote, string.rep(unit, CAP + 10)))
 				expected[name].Received += CAP
 				expected[name].ReceivedBytes += CAP * #unit
 				table.insert(parts, `{CAP} of {CAP + 10} {name} events in one packet`)
 			elseif CAP and reliability == "Unreliable" then
 				local messages = sendWithoutDelivering(looseClient, event, CAP + 3)
-				deliverInOneFrame(messages)
+				deliverFrame(messages)
 				expected[name].Received += CAP
 				expected[name].ReceivedBytes += wireBytes(table.move(messages, 1, CAP, 1, {}))
 				table.insert(parts, `{CAP} of {CAP + 3} {name} packets in one frame`)
@@ -2228,6 +2235,9 @@ local function trafficOfRefusals()
 		end
 	end
 	takeRefusals()
+	if #serverErrors > 0 then
+		fail(`traffic while refusing packets: the server raised {table.concat(serverErrors, " | ")}`)
+	end
 	local change = trafficChange(before, readTraffic())
 	local wrong = expectTraffic("traffic while refusing packets", change, expected)
 	line(`traffic while refusing malformed, oversized and excess packets: counted {if #parts == 0 then "nothing" else table.concat(parts, " and ")}{if #wrong == 0 then "" else " MISMATCH"}`)
