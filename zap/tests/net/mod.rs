@@ -238,6 +238,8 @@ fn schema(config: &Config) -> String {
 	)
 	.unwrap();
 
+	writeln!(out, "\ttrafficCounters = {},", config.traffic_counters).unwrap();
+
 	out.push_str("\ttypes = {\n");
 	for tydecl in &config.tydecls {
 		writeln!(

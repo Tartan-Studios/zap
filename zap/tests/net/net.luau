@@ -938,6 +938,11 @@ local NAMES = {
 		Iter = "Iter",
 		SendEvents = "SendEvents",
 		SetPacketRefusedCallback = "SetPacketRefusedCallback",
+		GetTrafficCounters = "GetTrafficCounters",
+		Received = "Received",
+		ReceivedBytes = "ReceivedBytes",
+		Sent = "Sent",
+		SentBytes = "SentBytes",
 	},
 	Camel = {
 		Fire = "fire",
@@ -951,6 +956,11 @@ local NAMES = {
 		Iter = "iter",
 		SendEvents = "sendEvents",
 		SetPacketRefusedCallback = "setPacketRefusedCallback",
+		GetTrafficCounters = "getTrafficCounters",
+		Received = "received",
+		ReceivedBytes = "receivedBytes",
+		Sent = "sent",
+		SentBytes = "sentBytes",
 	},
 	Snake = {
 		Fire = "fire",
@@ -964,6 +974,11 @@ local NAMES = {
 		Iter = "iter",
 		SendEvents = "send_events",
 		SetPacketRefusedCallback = "set_packet_refused_callback",
+		GetTrafficCounters = "get_traffic_counters",
+		Received = "received",
+		ReceivedBytes = "received_bytes",
+		Sent = "sent",
+		SentBytes = "sent_bytes",
 	},
 }
 local N = NAMES[SCHEMA.casing]
@@ -1266,6 +1281,8 @@ local function fireFromServer(api, method: string, values)
 		api[N.FireExcept](P2, table.unpack(values, 1, values.n))
 	elseif method == "FireList" then
 		api[N.FireList]({ P1, P3 }, table.unpack(values, 1, values.n))
+	elseif method == "FireListOfTwo" then
+		api[N.FireList]({ P1, P2 }, table.unpack(values, 1, values.n))
 	else
 		api[N.FireSet]({ [P1] = true, [P2] = true }, table.unpack(values, 1, values.n))
 	end
@@ -1957,6 +1974,252 @@ local function malformedPackets()
 	end
 end
 
+local TRAFFIC = SCHEMA.trafficCounters
+local TRAFFIC_FIELDS = { "Received", "ReceivedBytes", "Sent", "SentBytes" }
+
+type Traffic = { [string]: { [string]: number } }
+
+local trafficNames: { string } = {}
+for _, event in SCHEMA.events do
+	table.insert(trafficNames, pathName(event.path))
+end
+for _, fn in SCHEMA.functions do
+	table.insert(trafficNames, pathName(fn.path))
+end
+table.sort(trafficNames)
+
+local function readTraffic(): Traffic
+	local counters = server[N.GetTrafficCounters]()
+	local readings: Traffic = {}
+	for name, counter in counters do
+		if not table.find(trafficNames, name) then
+			fail(`traffic counters name {name}, which is no event or function`)
+		end
+		local reading = {}
+		for field, value in counter do
+			reading[field] = value
+		end
+		readings[name] = reading
+	end
+	for _, name in trafficNames do
+		local reading = readings[name]
+		if not reading then
+			fail(`traffic counters leave out {name}`)
+			readings[name] = { Received = 0, ReceivedBytes = 0, Sent = 0, SentBytes = 0 }
+			continue
+		end
+		local converted = {}
+		for _, field in TRAFFIC_FIELDS do
+			local value = reading[N[field]]
+			if typeof(value) ~= "number" then
+				fail(`traffic counter {name}.{N[field]} is {typeof(value)}`)
+				value = 0
+			end
+			converted[field] = value
+			reading[N[field]] = nil
+		end
+		for field in reading do
+			fail(`traffic counter {name} has an unexpected field {field}`)
+		end
+		readings[name] = converted
+	end
+	return readings
+end
+
+local function trafficChange(before: Traffic, after: Traffic): Traffic
+	local change: Traffic = {}
+	for _, name in trafficNames do
+		change[name] = {}
+		for _, field in TRAFFIC_FIELDS do
+			change[name][field] = after[name][field] - before[name][field]
+		end
+	end
+	return change
+end
+
+local function showTraffic(counter: { [string]: number }): string
+	return `received {counter.Received} ({counter.ReceivedBytes} bytes), sent {counter.Sent} ({counter.SentBytes} bytes)`
+end
+
+local function sameTraffic(a: { [string]: number }, b: { [string]: number }): boolean
+	for _, field in TRAFFIC_FIELDS do
+		if a[field] ~= b[field] then
+			return false
+		end
+	end
+	return true
+end
+
+local function zeroTraffic(): Traffic
+	local zero: Traffic = {}
+	for _, name in trafficNames do
+		zero[name] = { Received = 0, ReceivedBytes = 0, Sent = 0, SentBytes = 0 }
+	end
+	return zero
+end
+
+local function expectTraffic(label: string, change: Traffic, expected: Traffic)
+	local wrong = {}
+	for _, name in trafficNames do
+		if not sameTraffic(change[name], expected[name]) then
+			table.insert(wrong, name)
+			fail(`{label}: {name} counted {showTraffic(change[name])}, expected {showTraffic(expected[name])}`)
+		end
+	end
+	return wrong
+end
+
+local function trafficAtStart()
+	if not TRAFFIC then
+		return
+	end
+	local readings = readTraffic()
+	local wrong = expectTraffic("traffic at start", readings, zeroTraffic())
+	line(`traffic at start: {#trafficNames} names, {if #wrong == 0 then "all zero" else "NOT ZERO"}`)
+end
+
+local function wireBytes(messages: { Message }): number
+	local bytes = 0
+	for _, message in messages do
+		bytes += buffer.len(message.buff)
+	end
+	return bytes
+end
+
+local function deliverToClients(messages: { Message })
+	for _, message in messages do
+		if message.to == P1 then
+			handlers.Client[message.remote](message.buff, message.inst)
+		end
+	end
+end
+
+local function takeToServer(): { Message }
+	client[N.SendEvents]()
+	local messages = toServer
+	toServer = {}
+	return messages
+end
+
+local function takeToClients(): { Message }
+	server[N.SendEvents]()
+	local messages = toClients
+	toClients = {}
+	return messages
+end
+
+local function trafficOfEvents()
+	if not TRAFFIC then
+		return
+	end
+	pump()
+	local before = readTraffic()
+	local expected = zeroTraffic()
+	for _, event in runnable do
+		local name = pathName(event.path)
+		local sender = if event.from == "Server" then member(server, event.path) else member(client, event.path)
+		local side, receiver = receiverOf(event)
+		if event.from == "Client" then
+			for _ = 1, 2 do
+				nextServerFrame()
+				local values = generateArgs(event.params)
+				sender[N.Fire](table.unpack(values, 1, values.n))
+				local messages = takeToServer()
+				for _, message in messages do
+					deliverToServer(message)
+				end
+				expected[name].Received += #messages
+				expected[name].ReceivedBytes += wireBytes(messages)
+			end
+		else
+			for _, method in FIRE_METHODS do
+				if not SCHEMA.disabled[method] then
+					local values = generateArgs(event.params)
+					fireFromServer(sender, if method == "FireList" then "FireListOfTwo" else method, values)
+					local messages = takeToClients()
+					deliverToClients(messages)
+					expected[name].Sent += #messages
+					expected[name].SentBytes += wireBytes(messages)
+				end
+			end
+		end
+		collect(event, side, receiver)
+	end
+	for _, fn in callableFunctions do
+		local name = pathName(fn.path)
+		local args = generateArgs(fn.args)
+		functionReplies[fn] = generateArgs(fn.rets)
+		local returned = false
+		task.spawn(function()
+			member(client, fn.path)[N.Call](table.unpack(args, 1, args.n))
+			returned = true
+		end)
+		nextServerFrame()
+		local calls = takeToServer()
+		for _, message in calls do
+			deliverToServer(message)
+		end
+		task.wait()
+		local replies = takeToClients()
+		deliverToClients(replies)
+		task.wait()
+		if not returned then
+			fail(`traffic: {name} never returned`)
+		end
+		takeFunctionInbox(fn)
+		expected[name].Received += #calls
+		expected[name].ReceivedBytes += wireBytes(calls)
+		expected[name].Sent += #replies
+		expected[name].SentBytes += wireBytes(replies)
+	end
+	pump()
+	local change = trafficChange(before, readTraffic())
+	expectTraffic("traffic of known events", change, expected)
+	for _, name in trafficNames do
+		line(`traffic {name}: {showTraffic(change[name])}`)
+	end
+end
+
+local function trafficOfRefusals()
+	if not TRAFFIC or (not CAP and not BYTES) then
+		return
+	end
+	local before = readTraffic()
+	local expected = zeroTraffic()
+	local parts = {}
+	for _, reliability in { "Reliable", "Unreliable" } do
+		local event = firstClientEvent(reliability)
+		if event then
+			local name = pathName(event.path)
+			local real = sendWithoutDelivering(looseClient, event, 1)[1]
+			deliverMalformed(real.remote, nil, {})
+			deliverMalformed(real.remote, real.buff, "instances")
+			if BYTES then
+				deliverInOneFrame(rawPacket(real.remote, string.rep("\0", BYTES + 1)))
+			end
+			if CAP and reliability == "Reliable" and (CAP + 10) * buffer.len(real.buff) <= (BYTES or math.huge) then
+				local unit = buffer.tostring(real.buff)
+				deliverInOneFrame(rawPacket(real.remote, string.rep(unit, CAP + 10)))
+				expected[name].Received += CAP
+				expected[name].ReceivedBytes += CAP * #unit
+				table.insert(parts, `{CAP} of {CAP + 10} {name} events in one packet`)
+			elseif CAP and reliability == "Unreliable" then
+				local messages = sendWithoutDelivering(looseClient, event, CAP + 3)
+				deliverInOneFrame(messages)
+				expected[name].Received += CAP
+				expected[name].ReceivedBytes += wireBytes(table.move(messages, 1, CAP, 1, {}))
+				table.insert(parts, `{CAP} of {CAP + 3} {name} packets in one frame`)
+			end
+			collect(event, receiverOf(event))
+		end
+	end
+	takeRefusals()
+	local change = trafficChange(before, readTraffic())
+	local wrong = expectTraffic("traffic while refusing packets", change, expected)
+	line(`traffic while refusing malformed, oversized and excess packets: counted {if #parts == 0 then "nothing" else table.concat(parts, " and ")}{if #wrong == 0 then "" else " MISMATCH"}`)
+end
+
+trafficAtStart()
 for _, event in runnable do
 	roundTrip(event)
 end
@@ -1985,4 +2248,6 @@ if CAP or BYTES then
 end
 floodLimits()
 malformedPackets()
+trafficOfEvents()
+trafficOfRefusals()
 finish()

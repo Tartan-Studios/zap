@@ -1,0 +1,65 @@
+---
+source: zap/tests/net/mod.rs
+expression: report
+input_file: zap/tests/files/traffic_counters.zap
+---
+traffic at start: 11 names, all zero
+round trip FoodOrdered (Client, Reliable, ManySync): 12/12
+round trip Looked (Client, OrderedUnreliable, Polling): 12/12
+round trip Moved (Server, Unreliable, ManySync): 12/12
+round trip Scored (Server, Reliable, ManyAsync): 12/12
+round trip Shop.Browsed (Client, Reliable, SingleAsync): 12/12
+round trip Shop.Opened (Server, Reliable, SingleSync): 12/12
+round trip Steered (Client, Unreliable, SingleSync): 12/12
+round trip Tracked (Server, OrderedUnreliable, SingleSync): 12/12
+round trip Waved (Client, Reliable, SingleSync): 12/12
+burst of 20 Server events in one frame: all arrived in order
+burst of 20 Client events in one frame: all arrived in order
+function Ask (Sync): 12/12
+function Buy (Async): 12/12
+hostile FoodOrdered: refused 8 of 8, 0 not sendable
+hostile Looked: nothing to break
+hostile Shop.Browsed: nothing to break
+hostile Steered: nothing to break
+hostile Waved: nothing to break
+hostile function Ask: nothing to break
+hostile function Buy: refused 7 of 7
+utf8 FoodOrdered argument 1 field dish (..16): accepted [16 four-byte], refused [17 one-byte, 17 two-byte]
+utf8 Shop.Opened argument 1 (..12): accepted [12 four-byte], refused [13 one-byte, 13 two-byte]
+fuzz: 300 messages, 164 reached game code and all matched their types, 136 refused
+ordinary traffic: nothing refused
+one packet of 74 events beside another player's event: 64 Waved from Player2, 1 Waved from Player1 arrived; refused [Player2 TooManyEvents]
+the next frame, exactly 64 events: 64 Waved from Player2 arrived; refused []
+two packets of 61 and 10 events in one frame: 64 Waved from Player2 arrived; refused [Player2 TooManyEvents]
+67 unreliable packets in one frame: 64 Steered from Player2 arrived; refused [Player2 TooManyEvents x3]
+63 unreliable packets then a reliable packet of 5 events in one frame: 63 Steered from Player2, 1 Waved from Player2 arrived; refused [Player2 TooManyEvents]
+a 1048576 byte packet of 1048576 events: 0 Waved from Player2 arrived; refused [Player2 PacketTooLarge]
+a 1024 byte packet within the 1024 byte limit: 64 Waved from Player2 arrived; refused [Player2 TooManyEvents]
+a reliable packet of 1025 bytes: 0 Waved from Player2 arrived; refused [Player2 PacketTooLarge]
+an unreliable packet of 1025 bytes: 0 Steered from Player2 arrived; refused [Player2 PacketTooLarge]
+a reliable packet with no buffer: 0 Waved from Player2 arrived; refused [Player2 MalformedPacket]
+a reliable packet with a string buffer: 0 Waved from Player2 arrived; refused [Player2 MalformedPacket]
+a reliable packet with a number buffer: 0 Waved from Player2 arrived; refused [Player2 MalformedPacket]
+a reliable packet with no instances: 0 Waved from Player2 arrived; refused [Player2 MalformedPacket]
+a reliable packet with a string for its instances: 0 Waved from Player2 arrived; refused [Player2 MalformedPacket]
+a reliable packet with an Instance for its instances: 0 Waved from Player2 arrived; refused [Player2 MalformedPacket]
+the real reliable packet after them: 1 Waved from Player2 arrived; refused []
+an unreliable packet with no buffer: 0 Steered from Player2 arrived; refused [Player2 MalformedPacket]
+an unreliable packet with a string buffer: 0 Steered from Player2 arrived; refused [Player2 MalformedPacket]
+an unreliable packet with a number buffer: 0 Steered from Player2 arrived; refused [Player2 MalformedPacket]
+an unreliable packet with no instances: 0 Steered from Player2 arrived; refused [Player2 MalformedPacket]
+an unreliable packet with a string for its instances: 0 Steered from Player2 arrived; refused [Player2 MalformedPacket]
+an unreliable packet with an Instance for its instances: 0 Steered from Player2 arrived; refused [Player2 MalformedPacket]
+the real unreliable packet after them: 1 Steered from Player2 arrived; refused []
+traffic Ask: received 1 (3 bytes), sent 1 (3 bytes)
+traffic Buy: received 1 (16 bytes), sent 1 (7 bytes)
+traffic FoodOrdered: received 2 (27 bytes), sent 0 (0 bytes)
+traffic Looked: received 2 (8 bytes), sent 0 (0 bytes)
+traffic Moved: received 0 (0 bytes), sent 10 (80 bytes)
+traffic Scored: received 0 (0 bytes), sent 10 (50 bytes)
+traffic Shop.Browsed: received 2 (4 bytes), sent 0 (0 bytes)
+traffic Shop.Opened: received 0 (0 bytes), sent 10 (201 bytes)
+traffic Steered: received 2 (4 bytes), sent 0 (0 bytes)
+traffic Tracked: received 0 (0 bytes), sent 10 (30 bytes)
+traffic Waved: received 2 (2 bytes), sent 0 (0 bytes)
+traffic while refusing malformed, oversized and excess packets: counted 64 of 74 Waved events in one packet and 64 of 67 Steered packets in one frame

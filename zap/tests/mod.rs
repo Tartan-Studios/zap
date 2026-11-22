@@ -7,5 +7,6 @@ pub mod net;
 pub mod packet_limits;
 pub mod selene;
 pub mod stable_output;
+pub mod traffic_counters;
 pub mod types;
 pub mod wire;
