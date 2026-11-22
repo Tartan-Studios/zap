@@ -1228,12 +1228,13 @@ impl<'src> ServerOutput<'src> {
 						ev.id + 1
 					));
 
-					self.push_count_traffic(
-						&ev.display_path(),
-						TRAFFIC_SENT,
-						"#Players:GetPlayers()",
-						"#Players:GetPlayers() * buffer.len(buff)",
-					);
+					if self.config.traffic_counters {
+						self.push_line("for _ in Players:GetPlayers() do");
+						self.indent();
+						self.push_count_traffic(&ev.display_path(), TRAFFIC_SENT, "1", "buffer.len(buff)");
+						self.dedent();
+						self.push_line("end");
+					}
 				}
 			}
 		}

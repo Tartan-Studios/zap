@@ -8,8 +8,8 @@ use std::{
 
 use crate::config::{
 	Casing, Config, Enum, EvCall, EvDecl, EvSource, EvType, FnDecl, NamespaceEntry, NonPrimitiveTy, NumTy, Parameter,
-	PrimitiveTy, Range, Struct, TRAFFIC_COUNTER_NAMES_IN_SEND_METHODS, Ty, TyDecl, TypeScriptEnumType,
-	UNRELIABLE_ORDER_NUMTY, YieldType,
+	PrimitiveTy, Range, Struct, Ty, TyDecl, TypeScriptEnumType, UNRELIABLE_ORDER_NUMTY, YieldType,
+	traffic_counter_names_in_send_methods,
 };
 
 use super::{
@@ -555,13 +555,15 @@ impl<'src> Converter<'src> {
 			.unwrap_or(false)
 	}
 
-	fn check_traffic_counter_parameters(&mut self, syntax_parameters: &SyntaxParameters<'src>) {
+	fn check_traffic_counter_parameters(&mut self, syntax_parameters: &SyntaxParameters<'src>, evty: EvType) {
+		let reserved = traffic_counter_names_in_send_methods(evty);
+
 		for identifier in syntax_parameters
 			.parameters
 			.iter()
 			.filter_map(|(identifier, _)| *identifier)
 		{
-			if TRAFFIC_COUNTER_NAMES_IN_SEND_METHODS.contains(&identifier.name) {
+			if reserved.contains(&identifier.name) {
 				self.report(Report::AnalyzeTrafficCounterParameter {
 					span: identifier.span(),
 					name: identifier.name,
@@ -633,7 +635,7 @@ impl<'src> Converter<'src> {
 			self.check_duplicate_parameters(syntax_parameters);
 
 			if evdecl.from == EvSource::Server && self.counts_traffic() {
-				self.check_traffic_counter_parameters(syntax_parameters);
+				self.check_traffic_counter_parameters(syntax_parameters, evdecl.evty.unwrap_or_default());
 			}
 		}
 

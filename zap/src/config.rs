@@ -9,7 +9,13 @@ pub const UNRELIABLE_ORDER_NUMTY: NumTy = NumTy::U16;
 
 pub const TRAFFIC_COUNTERS_BUFFER: &str = "traffic_counters";
 pub const TRAFFIC_SENT_START: &str = "traffic_sent_start";
-pub const TRAFFIC_COUNTER_NAMES_IN_SEND_METHODS: [&str; 2] = [TRAFFIC_COUNTERS_BUFFER, TRAFFIC_SENT_START];
+
+pub fn traffic_counter_names_in_send_methods(evty: EvType) -> &'static [&'static str] {
+	match evty {
+		EvType::Reliable => &[TRAFFIC_COUNTERS_BUFFER, TRAFFIC_SENT_START],
+		EvType::Unreliable(_) => &[TRAFFIC_COUNTERS_BUFFER],
+	}
+}
 
 pub const PACKET_REFUSED_REASON_TY: &str = "\"MalformedPacket\" | \"PacketTooLarge\" | \"TooManyEvents\"";
 

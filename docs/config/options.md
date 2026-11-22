@@ -463,7 +463,7 @@ This option makes the server module count, for every event and function, how man
 
 The counts live in one buffer and each send or receive adds to it in place, so the cost is small, but it is not zero: every place that sends or receives an event gains two writes. The client module does not change.
 
-While the option is on, the parameters of an event sent by the server can't be named `traffic_counters` or `traffic_sent_start`, because the counting code in its send methods uses those names.
+While the option is on, a parameter of an event sent by the server can't be named `traffic_counters`, and one of a reliable event sent by the server can't be named `traffic_sent_start`, because the counting code in their send methods uses those names.
 
 ### Default
 

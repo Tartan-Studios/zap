@@ -225,11 +225,15 @@ fn the_api_name_is_reserved_only_while_counting() {
 
 #[test]
 fn server_event_parameters_cannot_hide_the_counters() {
-	for name in ["traffic_counters", "traffic_sent_start"] {
+	for (name, reliability) in [
+		("traffic_counters", "Reliable"),
+		("traffic_counters", "Unreliable"),
+		("traffic_sent_start", "Reliable"),
+	] {
 		for event in [
-			format!("event Rerouted = {{ from: Server, type: Reliable, call: ManySync, data: ({name}: u8) }}"),
+			format!("event Rerouted = {{ from: Server, type: {reliability}, call: ManySync, data: ({name}: u8) }}"),
 			format!(
-				"namespace Roads = {{ event Rerouted = {{ from: Server, type: Unreliable, call: ManySync, data: (lane: u8, {name}: u16) }} }}"
+				"namespace Roads = {{ event Rerouted = {{ from: Server, type: {reliability}, call: ManySync, data: (lane: u8, {name}: u16) }} }}"
 			),
 		] {
 			let messages = zap::run(&format!("opt traffic_counters = true\n{event}"), true)
@@ -252,7 +256,7 @@ fn server_event_parameters_cannot_hide_the_counters() {
 		}
 
 		let client_event =
-			format!("event Rerouted = {{ from: Client, type: Reliable, call: ManySync, data: ({name}: u8) }}");
+			format!("event Rerouted = {{ from: Client, type: {reliability}, call: ManySync, data: ({name}: u8) }}");
 		assert!(
 			zap::run(&format!("opt traffic_counters = true\n{client_event}"), true)
 				.diagnostics
@@ -260,4 +264,11 @@ fn server_event_parameters_cannot_hide_the_counters() {
 			"{client_event} was refused"
 		);
 	}
+}
+
+#[test]
+fn an_unreliable_server_event_may_name_a_parameter_traffic_sent_start() {
+	let event = "opt traffic_counters = true\nevent Rerouted = { from: Server, type: OrderedUnreliable, call: ManySync, data: (traffic_sent_start: u8) }";
+
+	assert!(zap::run(event, true).diagnostics.is_empty());
 }
