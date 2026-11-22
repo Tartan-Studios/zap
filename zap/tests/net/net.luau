@@ -1953,13 +1953,15 @@ local function malformedPackets()
 			end
 			if CAP then
 				serverErrors = {}
-				for _ = 1, CAP do
-					deliverMalformed(real.remote, nil, {})
+				for _, case in cases do
+					for _ = 1, CAP do
+						deliverMalformed(real.remote, case.buff, case.inst)
+					end
 				end
 				expectFlood(
-					`{CAP} more malformed {kind} packets in the same frame`,
+					`{CAP} more of each malformed {kind} packet in the same frame`,
 					{ { event = event, player = P2, expected = 0 } },
-					`Player2 MalformedPacket x{CAP}`
+					`Player2 MalformedPacket x{CAP * #cases}`
 				)
 			end
 			serverErrors = {}
