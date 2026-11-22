@@ -431,6 +431,8 @@ This option makes the server refuse any packet a client sends that is larger tha
 
 Pick a limit comfortably above the largest packet your game legitimately sends in one frame. Refused packets are reported through [`SetPacketRefusedCallback`](../usage/generated-api.md#setpacketrefusedcallback).
 
+While either this option or [`max_client_events_per_frame`](#max-client-events-per-frame) is set, the server also refuses a packet that is not a buffer, or whose instances are not a table, before it reads anything. Zap's own client never sends one, but a modified client can fire the remotes with anything, and without the check the server would raise an error for each one.
+
 ### Default
 
 No limit.

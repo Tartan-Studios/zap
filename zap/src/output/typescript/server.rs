@@ -1,4 +1,6 @@
-use crate::config::{Config, Enum, EvCall, EvDecl, EvSource, NamespaceEntry, Ty, TyDecl, TypeScriptEnumType};
+use crate::config::{
+	Config, Enum, EvCall, EvDecl, EvSource, NamespaceEntry, PACKET_REFUSED_REASON_TY, Ty, TyDecl, TypeScriptEnumType,
+};
 
 use super::ConfigProvider;
 use super::Output;
@@ -198,7 +200,7 @@ impl<'src> ServerOutput<'src> {
 		let reason = self.config.casing.with("Reason", "reason", "reason");
 
 		self.push_line(&format!(
-			"export declare const {}: ({callback}: ({player}: Player, {reason}: \"PacketTooLarge\" | \"TooManyEvents\") => void) => () => void",
+			"export declare const {}: ({callback}: ({player}: Player, {reason}: {PACKET_REFUSED_REASON_TY}) => void) => () => void",
 			self.config.packet_refused_callback_name()
 		));
 	}
