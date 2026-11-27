@@ -9,10 +9,11 @@ pub const UNRELIABLE_ORDER_NUMTY: NumTy = NumTy::U16;
 
 pub const TRAFFIC_COUNTERS_BUFFER: &str = "traffic_counters";
 pub const TRAFFIC_SENT_START: &str = "traffic_sent_start";
+pub const TRAFFIC_CURSOR: &str = "traffic_cursor";
 
 pub fn traffic_counter_names_in_send_methods(evty: EvType) -> &'static [&'static str] {
 	match evty {
-		EvType::Reliable => &[TRAFFIC_COUNTERS_BUFFER, TRAFFIC_SENT_START],
+		EvType::Reliable => &[TRAFFIC_COUNTERS_BUFFER, TRAFFIC_SENT_START, TRAFFIC_CURSOR],
 		EvType::Unreliable(_) => &[TRAFFIC_COUNTERS_BUFFER],
 	}
 }

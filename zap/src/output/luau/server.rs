@@ -3,7 +3,7 @@ use std::{cmp::max, collections::HashMap, slice};
 use crate::{
 	config::{
 		Config, EvCall, EvDecl, EvSource, EvType, FnCall, FnDecl, NamespaceEntry, PACKET_REFUSED_REASON_TY, Parameter,
-		TRAFFIC_COUNTERS_BUFFER, TRAFFIC_SENT_START, TyDecl, UNRELIABLE_ORDER_NUMTY,
+		TRAFFIC_COUNTERS_BUFFER, TRAFFIC_CURSOR, TRAFFIC_SENT_START, TyDecl, UNRELIABLE_ORDER_NUMTY,
 	},
 	irgen::{des, ser},
 	output::{
@@ -142,6 +142,12 @@ impl<'src> ServerOutput<'src> {
 			slot_count * TRAFFIC_SLOT_BYTES
 		));
 		self.push("\n");
+		self.push_line(&format!("local function {TRAFFIC_CURSOR}(): number"));
+		self.indent();
+		self.push_line("return outgoing_used");
+		self.dedent();
+		self.push_line("end");
+		self.push("\n");
 		self.push_line(&format!(
 			"local function get_traffic_counters(): {{ [string]: {{ {received}: number, {received_bytes}: number, {sent}: number, {sent_bytes}: number }} }}"
 		));
@@ -198,7 +204,7 @@ impl<'src> ServerOutput<'src> {
 
 	fn push_sent_start(&mut self) {
 		if self.config.traffic_counters {
-			self.push_line(&format!("local {TRAFFIC_SENT_START} = outgoing_used"));
+			self.push_line(&format!("local {TRAFFIC_SENT_START} = {TRAFFIC_CURSOR}()"));
 		}
 	}
 
@@ -758,7 +764,7 @@ impl<'src> ServerOutput<'src> {
 				&fndecl.display_path(),
 				TRAFFIC_SENT,
 				"1",
-				&format!("outgoing_used - {TRAFFIC_SENT_START}"),
+				&format!("{TRAFFIC_CURSOR}() - {TRAFFIC_SENT_START}"),
 			);
 			self.push_line("player_map[player_2] = save()");
 
@@ -792,7 +798,7 @@ impl<'src> ServerOutput<'src> {
 				&fndecl.display_path(),
 				TRAFFIC_SENT,
 				"1",
-				&format!("outgoing_used - {TRAFFIC_SENT_START}"),
+				&format!("{TRAFFIC_CURSOR}() - {TRAFFIC_SENT_START}"),
 			);
 			self.push_line("player_map[player] = save()");
 		}
@@ -1142,7 +1148,7 @@ impl<'src> ServerOutput<'src> {
 					&path,
 					TRAFFIC_SENT,
 					"1",
-					&format!("outgoing_used - {TRAFFIC_SENT_START}"),
+					&format!("{TRAFFIC_CURSOR}() - {TRAFFIC_SENT_START}"),
 				);
 				self.push_line(&format!("player_map[{player}] = save()"));
 			}

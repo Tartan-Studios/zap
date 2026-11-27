@@ -229,6 +229,7 @@ fn server_event_parameters_cannot_hide_the_counters() {
 		("traffic_counters", "Reliable"),
 		("traffic_counters", "Unreliable"),
 		("traffic_sent_start", "Reliable"),
+		("traffic_cursor", "Reliable"),
 	] {
 		for event in [
 			format!("event Rerouted = {{ from: Server, type: {reliability}, call: ManySync, data: ({name}: u8) }}"),
@@ -271,4 +272,19 @@ fn an_unreliable_server_event_may_name_a_parameter_traffic_sent_start() {
 	let event = "opt traffic_counters = true\nevent Rerouted = { from: Server, type: OrderedUnreliable, call: ManySync, data: (traffic_sent_start: u8) }";
 
 	assert!(zap::run(event, true).diagnostics.is_empty());
+}
+
+#[test]
+fn reliable_sends_read_the_write_cursor_through_a_name_no_parameter_can_take() {
+	let server = generate("opt traffic_counters = true").server;
+	let counting = server
+		.lines()
+		.filter(|line| line.contains("traffic_sent_start"))
+		.collect::<Vec<_>>();
+
+	assert!(!counting.is_empty());
+	for line in counting {
+		assert!(!line.contains("outgoing_used"), "{line}");
+	}
+	assert_eq!(count(&server, "local function traffic_cursor(): number"), 1);
 }

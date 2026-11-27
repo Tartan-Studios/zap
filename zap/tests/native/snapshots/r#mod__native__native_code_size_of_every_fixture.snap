@@ -31,9 +31,9 @@ simple_struct: server 5245, client 2460
 string_kinds: server 2757, client 2087
 struct_quoted_fields: server 5245, client 2460
 tagged_enum_quoted: server 5360, client 2587
-traffic_counters: server 25165, client 7737
+traffic_counters: server 25180, client 7737
 tuples: server 5314, client 2517
 two_unnamed_parameters: server 5234, client 2453
 typescript_enum: server 2639, client 2028
 unit_enum_quoted: server 5236, client 2432
-total: server 457381, client 473035
+total: server 457396, client 473035
