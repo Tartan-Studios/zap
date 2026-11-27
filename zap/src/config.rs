@@ -7,6 +7,17 @@ use std::{
 
 pub const UNRELIABLE_ORDER_NUMTY: NumTy = NumTy::U16;
 
+pub const TRAFFIC_COUNTERS_BUFFER: &str = "traffic_counters";
+pub const TRAFFIC_SENT_START: &str = "traffic_sent_start";
+pub const TRAFFIC_CURSOR: &str = "traffic_cursor";
+
+pub fn traffic_counter_names_in_send_methods(evty: EvType) -> &'static [&'static str] {
+	match evty {
+		EvType::Reliable => &[TRAFFIC_COUNTERS_BUFFER, TRAFFIC_SENT_START, TRAFFIC_CURSOR],
+		EvType::Unreliable(_) => &[TRAFFIC_COUNTERS_BUFFER],
+	}
+}
+
 pub const PACKET_REFUSED_REASON_TY: &str = "\"MalformedPacket\" | \"PacketTooLarge\" | \"TooManyEvents\"";
 
 #[derive(Debug, Clone)]
@@ -59,6 +70,7 @@ pub struct Config<'src> {
 	pub disable_fire_set: bool,
 	pub max_client_packet_bytes: Option<u32>,
 	pub max_client_events_per_frame: Option<u32>,
+	pub traffic_counters: bool,
 }
 
 impl<'src> Config<'src> {
@@ -170,6 +182,11 @@ impl<'src> Config<'src> {
 			"setPacketRefusedCallback",
 			"set_packet_refused_callback",
 		)
+	}
+
+	pub fn traffic_counters_name(&self) -> &'static str {
+		self.casing
+			.with("GetTrafficCounters", "getTrafficCounters", "get_traffic_counters")
 	}
 
 	pub fn server_reliable_ty(&self) -> NumTy {

@@ -9,6 +9,7 @@ use std::{
 use crate::config::{
 	Casing, Config, Enum, EvCall, EvDecl, EvSource, EvType, FnDecl, NamespaceEntry, NonPrimitiveTy, NumTy, Parameter,
 	PrimitiveTy, Range, Struct, Ty, TyDecl, TypeScriptEnumType, UNRELIABLE_ORDER_NUMTY, YieldType,
+	traffic_counter_names_in_send_methods,
 };
 
 use super::{
@@ -229,6 +230,7 @@ impl<'src> Converter<'src> {
 		let (disable_fire_set, ..) = self.boolean_opt("disable_fire_set", false, &config.opts);
 		let max_client_packet_bytes = self.limit_opt("max_client_packet_bytes", &config.opts);
 		let max_client_events_per_frame = self.limit_opt("max_client_events_per_frame", &config.opts);
+		let (traffic_counters, ..) = self.boolean_opt("traffic_counters", false, &config.opts);
 
 		let config = Config {
 			tydecls: std::mem::take(&mut self.all_tydecls).into_values().collect(),
@@ -262,6 +264,7 @@ impl<'src> Converter<'src> {
 			disable_fire_set,
 			max_client_packet_bytes,
 			max_client_events_per_frame,
+			traffic_counters,
 		};
 
 		self.check_empty_file(&config);
@@ -539,6 +542,36 @@ impl<'src> Converter<'src> {
 		}
 	}
 
+	fn counts_traffic(&self) -> bool {
+		self.config
+			.opts
+			.iter()
+			.rev()
+			.filter(|opt| opt.name.name == "traffic_counters")
+			.find_map(|opt| match &opt.value.kind {
+				SyntaxOptValueKind::Bool(value) => Some(value.value),
+				_ => None,
+			})
+			.unwrap_or(false)
+	}
+
+	fn check_traffic_counter_parameters(&mut self, syntax_parameters: &SyntaxParameters<'src>, evty: EvType) {
+		let reserved = traffic_counter_names_in_send_methods(evty);
+
+		for identifier in syntax_parameters
+			.parameters
+			.iter()
+			.filter_map(|(identifier, _)| *identifier)
+		{
+			if reserved.contains(&identifier.name) {
+				self.report(Report::AnalyzeTrafficCounterParameter {
+					span: identifier.span(),
+					name: identifier.name,
+				});
+			}
+		}
+	}
+
 	fn check_empty_file(&mut self, config: &Config) {
 		let mut has_evdecls = false;
 
@@ -556,7 +589,9 @@ impl<'src> Converter<'src> {
 		let packet_refused_callback = config
 			.limits_client_packets()
 			.then(|| config.packet_refused_callback_name());
-		let exported = |name: &str| name == send_events || Some(name) == packet_refused_callback;
+		let traffic_counters = config.traffic_counters.then(|| config.traffic_counters_name());
+		let exported =
+			|name: &str| name == send_events || Some(name) == packet_refused_callback || Some(name) == traffic_counters;
 
 		// we can do self.config.decls instead of traverse_namespaces as we're only interested in checking at the top level!
 		let report = self.config.decls.iter().find_map(|decl| match decl {
@@ -598,6 +633,10 @@ impl<'src> Converter<'src> {
 	fn evdecl(&mut self, evdecl: &SyntaxEvDecl<'src>, id: usize) -> EvDecl<'src> {
 		if let Some(syntax_parameters) = &evdecl.data {
 			self.check_duplicate_parameters(syntax_parameters);
+
+			if evdecl.from == EvSource::Server && self.counts_traffic() {
+				self.check_traffic_counter_parameters(syntax_parameters, evdecl.evty.unwrap_or_default());
+			}
 		}
 
 		let name = evdecl.name.name;

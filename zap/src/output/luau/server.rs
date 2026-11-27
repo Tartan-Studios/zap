@@ -3,7 +3,7 @@ use std::{cmp::max, collections::HashMap, slice};
 use crate::{
 	config::{
 		Config, EvCall, EvDecl, EvSource, EvType, FnCall, FnDecl, NamespaceEntry, PACKET_REFUSED_REASON_TY, Parameter,
-		TyDecl, UNRELIABLE_ORDER_NUMTY,
+		TRAFFIC_COUNTERS_BUFFER, TRAFFIC_CURSOR, TRAFFIC_SENT_START, TyDecl, UNRELIABLE_ORDER_NUMTY,
 	},
 	irgen::{des, ser},
 	output::{
@@ -15,6 +15,9 @@ use crate::{
 use super::Output;
 
 const MALFORMED_PACKET: &str = "MalformedPacket";
+const TRAFFIC_SLOT_BYTES: usize = 32;
+const TRAFFIC_RECEIVED: usize = 0;
+const TRAFFIC_SENT: usize = 16;
 const PACKET_TOO_LARGE: &str = "PacketTooLarge";
 const TOO_MANY_EVENTS: &str = "TooManyEvents";
 
@@ -25,11 +28,55 @@ fn event_writer(ev: &EvDecl) -> String {
 	}
 }
 
+struct TrafficSlots {
+	names: Vec<String>,
+	slots: HashMap<String, usize>,
+}
+
+impl TrafficSlots {
+	fn new(config: &Config) -> Self {
+		let mut names = vec![None; config.server_reliable_count()];
+
+		for evdecl in config.evdecls() {
+			if evdecl.from == EvSource::Client && evdecl.evty == EvType::Reliable {
+				names[evdecl.id] = Some(evdecl.display_path());
+			}
+		}
+
+		for fndecl in config.fndecls() {
+			names[fndecl.server_id] = Some(fndecl.display_path());
+		}
+
+		let mut names = names
+			.into_iter()
+			.map(|name| name.expect("every server reliable id belongs to an event or a function"))
+			.collect::<Vec<_>>();
+
+		let mut others = config
+			.evdecls()
+			.into_iter()
+			.filter(|evdecl| !(evdecl.from == EvSource::Client && evdecl.evty == EvType::Reliable))
+			.map(|evdecl| evdecl.display_path())
+			.collect::<Vec<_>>();
+		others.sort();
+		names.extend(others);
+
+		let slots = names
+			.iter()
+			.enumerate()
+			.map(|(slot, name)| (name.clone(), slot))
+			.collect();
+
+		Self { names, slots }
+	}
+}
+
 struct ServerOutput<'src> {
 	config: &'src Config<'src>,
 	tabs: u32,
 	buf: String,
 	var_occurrences: HashMap<String, usize>,
+	traffic: Option<TrafficSlots>,
 }
 
 impl<'src> Output<'src> for ServerOutput<'src> {
@@ -65,6 +112,99 @@ impl<'src> ServerOutput<'src> {
 			tabs: 0,
 			buf: String::new(),
 			var_occurrences: HashMap::new(),
+			traffic: config.traffic_counters.then(|| TrafficSlots::new(config)),
+		}
+	}
+
+	fn push_traffic_counters(&mut self) {
+		let Some(traffic) = &self.traffic else {
+			return;
+		};
+
+		let names = traffic
+			.names
+			.iter()
+			.map(|name| format!("\"{name}\""))
+			.collect::<Vec<_>>()
+			.join(", ");
+		let slot_count = traffic.names.len();
+
+		let received = self.config.casing.with("Received", "received", "received");
+		let received_bytes = self
+			.config
+			.casing
+			.with("ReceivedBytes", "receivedBytes", "received_bytes");
+		let sent = self.config.casing.with("Sent", "sent", "sent");
+		let sent_bytes = self.config.casing.with("SentBytes", "sentBytes", "sent_bytes");
+
+		self.push_line(&format!(
+			"local {TRAFFIC_COUNTERS_BUFFER} = buffer.create({})",
+			slot_count * TRAFFIC_SLOT_BYTES
+		));
+		self.push("\n");
+		self.push_line(&format!("local function {TRAFFIC_CURSOR}(): number"));
+		self.indent();
+		self.push_line("return outgoing_used");
+		self.dedent();
+		self.push_line("end");
+		self.push("\n");
+		self.push_line(&format!(
+			"local function get_traffic_counters(): {{ [string]: {{ {received}: number, {received_bytes}: number, {sent}: number, {sent_bytes}: number }} }}"
+		));
+		self.indent();
+		self.push_line("local counters = {}");
+		self.push_line(&format!("for slot, name in {{ {names} }} do"));
+		self.indent();
+		self.push_line(&format!("local at = (slot - 1) * {TRAFFIC_SLOT_BYTES}"));
+		self.push_line("counters[name] = {");
+		self.indent();
+		self.push_line(&format!("{received} = buffer.readf64({TRAFFIC_COUNTERS_BUFFER}, at),"));
+		self.push_line(&format!(
+			"{received_bytes} = buffer.readf64({TRAFFIC_COUNTERS_BUFFER}, at + 8),"
+		));
+		self.push_line(&format!("{sent} = buffer.readf64({TRAFFIC_COUNTERS_BUFFER}, at + 16),"));
+		self.push_line(&format!(
+			"{sent_bytes} = buffer.readf64({TRAFFIC_COUNTERS_BUFFER}, at + 24),"
+		));
+		self.dedent();
+		self.push_line("}");
+		self.dedent();
+		self.push_line("end");
+		self.push_line("return counters");
+		self.dedent();
+		self.push_line("end");
+		self.push("\n");
+	}
+
+	fn push_traffic_api(&mut self) {
+		if self.config.traffic_counters {
+			self.push_line(&format!(
+				"{} = get_traffic_counters,",
+				self.config.traffic_counters_name()
+			));
+		}
+	}
+
+	fn push_count_traffic(&mut self, path: &str, direction: usize, count: &str, bytes: &str) {
+		let Some(traffic) = &self.traffic else {
+			return;
+		};
+
+		let at = traffic.slots[path] * TRAFFIC_SLOT_BYTES + direction;
+
+		self.push_add_traffic(&at.to_string(), count);
+		self.push_add_traffic(&(at + 8).to_string(), bytes);
+	}
+
+	fn push_add_traffic(&mut self, at: &str, amount: &str) {
+		self.push_line(&format!(
+			"buffer.writef64({TRAFFIC_COUNTERS_BUFFER}, {at}, buffer.readf64({TRAFFIC_COUNTERS_BUFFER}, {at}) + {amount})"
+		));
+	}
+
+	fn push_sent_start(&mut self) {
+		if self.config.traffic_counters {
+			self.push_line(&format!("local {TRAFFIC_SENT_START} = {TRAFFIC_CURSOR}()"));
 		}
 	}
 
@@ -94,6 +234,8 @@ impl<'src> ServerOutput<'src> {
 		if self.config.limits_client_packets() {
 			self.push_line(&format!("{} = noop,", self.config.packet_refused_callback_name()));
 		}
+
+		self.push_traffic_api();
 
 		self.config.traverse_namespaces(
 			self,
@@ -326,6 +468,10 @@ impl<'src> ServerOutput<'src> {
 		}
 
 		let server_reliable_ty = self.config.server_reliable_ty();
+
+		if self.config.traffic_counters {
+			self.push_line("local traffic_start = incoming_read");
+		}
 
 		self.push_line(&format!(
 			"local id = buffer.read{}(buff, read({}))",
@@ -596,6 +742,7 @@ impl<'src> ServerOutput<'src> {
 			));
 
 			self.push_line("load_player(player_2)");
+			self.push_sent_start();
 			self.push_write_event_id(fndecl.client_id);
 
 			self.push_line("alloc(1)");
@@ -613,6 +760,12 @@ impl<'src> ServerOutput<'src> {
 				self.push_stmts(statements);
 			}
 
+			self.push_count_traffic(
+				&fndecl.display_path(),
+				TRAFFIC_SENT,
+				"1",
+				&format!("{TRAFFIC_CURSOR}() - {TRAFFIC_SENT_START}"),
+			);
 			self.push_line("player_map[player_2] = save()");
 
 			self.dedent();
@@ -623,6 +776,7 @@ impl<'src> ServerOutput<'src> {
 			));
 
 			self.push_line("load_player(player)");
+			self.push_sent_start();
 			self.push_write_event_id(fndecl.client_id);
 
 			self.push_line("alloc(1)");
@@ -640,6 +794,12 @@ impl<'src> ServerOutput<'src> {
 				self.push_stmts(statements);
 			}
 
+			self.push_count_traffic(
+				&fndecl.display_path(),
+				TRAFFIC_SENT,
+				"1",
+				&format!("{TRAFFIC_CURSOR}() - {TRAFFIC_SENT_START}"),
+			);
 			self.push_line("player_map[player] = save()");
 		}
 
@@ -655,6 +815,12 @@ impl<'src> ServerOutput<'src> {
 		self.push_line("error(\"Unknown event id\")");
 		self.dedent();
 		self.push_line("end");
+
+		if self.config.traffic_counters {
+			self.push_line(&format!("local traffic_at = id * {TRAFFIC_SLOT_BYTES}"));
+			self.push_add_traffic("traffic_at", "1");
+			self.push_add_traffic("traffic_at + 8", "incoming_read - traffic_start");
+		}
 		self.dedent();
 		self.push_line("end");
 
@@ -766,6 +932,8 @@ impl<'src> ServerOutput<'src> {
 			);
 			self.push_stmts(statements);
 		}
+
+		self.push_count_traffic(&ev.display_path(), TRAFFIC_RECEIVED, "1", "buffer.len(buff)");
 
 		if ev.call == EvCall::Polling {
 			self.push_polling_event(ev);
@@ -962,18 +1130,32 @@ impl<'src> ServerOutput<'src> {
 			self.push_line(&format!("debug.profilebegin(\"{} Fire\")", ev.display_path()));
 		}
 
+		let path = ev.display_path();
+
 		match ev.evty {
-			EvType::Reliable => self.push_line(&format!("load_player({player})")),
+			EvType::Reliable => {
+				self.push_line(&format!("load_player({player})"));
+				self.push_sent_start();
+			}
 			EvType::Unreliable(_) => self.push_line("load_empty()"),
 		}
 
 		self.push_write_event_call(ev);
 
 		match ev.evty {
-			EvType::Reliable => self.push_line(&format!("player_map[{player}] = save()")),
+			EvType::Reliable => {
+				self.push_count_traffic(
+					&path,
+					TRAFFIC_SENT,
+					"1",
+					&format!("{TRAFFIC_CURSOR}() - {TRAFFIC_SENT_START}"),
+				);
+				self.push_line(&format!("player_map[{player}] = save()"));
+			}
 			EvType::Unreliable(ordered) => {
 				self.push_line("local buff = buffer.create(outgoing_used)");
 				self.push_line("buffer.copy(buff, 0, outgoing_buff, 0, outgoing_used)");
+				self.push_count_traffic(&path, TRAFFIC_SENT, "1", "buffer.len(buff)");
 				if ordered {
 					self.push_line("local saved = save()");
 					self.push_unreliable_order_id(player, ev.id);
@@ -1026,6 +1208,7 @@ impl<'src> ServerOutput<'src> {
 				self.push_line("buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)");
 				self.push_line("table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)");
 				self.push_line("player_map[player] = save()");
+				self.push_count_traffic(&ev.display_path(), TRAFFIC_SENT, "1", "used");
 				self.dedent();
 				self.push_line("end");
 			}
@@ -1042,6 +1225,7 @@ impl<'src> ServerOutput<'src> {
 						"unreliable[{}]:FireClient(player, buff, outgoing_inst)",
 						ev.id + 1
 					));
+					self.push_count_traffic(&ev.display_path(), TRAFFIC_SENT, "1", "buffer.len(buff)");
 					self.dedent();
 					self.push_line("end");
 				} else {
@@ -1049,6 +1233,14 @@ impl<'src> ServerOutput<'src> {
 						"unreliable[{}]:FireAllClients(buff, outgoing_inst)",
 						ev.id + 1
 					));
+
+					if self.config.traffic_counters {
+						self.push_line("for _ in Players:GetPlayers() do");
+						self.indent();
+						self.push_count_traffic(&ev.display_path(), TRAFFIC_SENT, "1", "buffer.len(buff)");
+						self.dedent();
+						self.push_line("end");
+					}
 				}
 			}
 		}
@@ -1098,6 +1290,7 @@ impl<'src> ServerOutput<'src> {
 				self.push_line("buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)");
 				self.push_line("table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)");
 				self.push_line("player_map[player] = save()");
+				self.push_count_traffic(&ev.display_path(), TRAFFIC_SENT, "1", "used");
 				self.dedent();
 				self.push_line("end");
 				self.dedent();
@@ -1121,6 +1314,7 @@ impl<'src> ServerOutput<'src> {
 					"unreliable[{}]:FireClient(player, buff, outgoing_inst)",
 					ev.id + 1
 				));
+				self.push_count_traffic(&ev.display_path(), TRAFFIC_SENT, "1", "buffer.len(buff)");
 				self.dedent();
 				self.push_line("end");
 				self.dedent();
@@ -1171,6 +1365,7 @@ impl<'src> ServerOutput<'src> {
 				self.push_line("buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)");
 				self.push_line("table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)");
 				self.push_line("player_map[player] = save()");
+				self.push_count_traffic(&ev.display_path(), TRAFFIC_SENT, "1", "used");
 				self.dedent();
 				self.push_line("end");
 			}
@@ -1190,6 +1385,7 @@ impl<'src> ServerOutput<'src> {
 					"unreliable[{}]:FireClient(player, buff, outgoing_inst)",
 					ev.id + 1
 				));
+				self.push_count_traffic(&ev.display_path(), TRAFFIC_SENT, "1", "buffer.len(buff)");
 				self.dedent();
 				self.push_line("end");
 			}
@@ -1238,6 +1434,7 @@ impl<'src> ServerOutput<'src> {
 				self.push_line("buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)");
 				self.push_line("table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)");
 				self.push_line("player_map[player] = save()");
+				self.push_count_traffic(&ev.display_path(), TRAFFIC_SENT, "1", "used");
 				self.dedent();
 				self.push_line("end");
 			}
@@ -1257,6 +1454,7 @@ impl<'src> ServerOutput<'src> {
 					"unreliable[{}]:FireClient(player, buff, outgoing_inst)",
 					ev.id + 1
 				));
+				self.push_count_traffic(&ev.display_path(), TRAFFIC_SENT, "1", "buffer.len(buff)");
 				self.dedent();
 				self.push_line("end");
 			}
@@ -1562,6 +1760,8 @@ impl<'src> ServerOutput<'src> {
 			self.push_return_packet_refused_callback();
 		}
 
+		self.push_traffic_api();
+
 		self.config.traverse_namespaces(
 			self,
 			|this, diff| {
@@ -1810,6 +2010,8 @@ impl<'src> ServerOutput<'src> {
 		};
 
 		self.push(include_str!("base.luau"));
+
+		self.push_traffic_counters();
 
 		self.push_studio();
 

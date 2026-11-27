@@ -22,3 +22,8 @@ server.SetPacketRefusedCallback(function(from: Player, reason: number) end) --> 
 server.SetPacketRefusedCallback(function(from: Player, reason: "PacketTooLarge" | "TooManyEvents") end) --> error
 server.SetPacketRefusedCallback(function(from: Player, reason) local unknownReason: "Unknown" = reason end) --> error
 client.SetPacketRefusedCallback(function() end) --> error
+local countedName: number = server.GetTrafficCounters().Scored.Received .. "" --> error
+local countedBytes: string = server.GetTrafficCounters().Scored.SentBytes --> error
+local dropped = server.GetTrafficCounters().Scored.Dropped --> error
+server.GetTrafficCounters(true) --> error
+client.GetTrafficCounters() --> error
