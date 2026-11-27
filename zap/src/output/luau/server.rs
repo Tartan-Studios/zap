@@ -2,8 +2,8 @@ use std::{cmp::max, collections::HashMap, slice};
 
 use crate::{
 	config::{
-		Config, EvCall, EvDecl, EvSource, EvType, FnCall, FnDecl, NamespaceEntry, Parameter, TyDecl,
-		UNRELIABLE_ORDER_NUMTY,
+		Config, EvCall, EvDecl, EvSource, EvType, FnCall, FnDecl, NamespaceEntry, PACKET_REFUSED_REASON_TY, Parameter,
+		TyDecl, UNRELIABLE_ORDER_NUMTY,
 	},
 	irgen::{des, ser},
 	output::{
@@ -14,9 +14,9 @@ use crate::{
 
 use super::Output;
 
+const MALFORMED_PACKET: &str = "MalformedPacket";
 const PACKET_TOO_LARGE: &str = "PacketTooLarge";
 const TOO_MANY_EVENTS: &str = "TooManyEvents";
-const REFUSED_REASON_TY: &str = "\"PacketTooLarge\" | \"TooManyEvents\"";
 
 fn event_writer(ev: &EvDecl) -> String {
 	match ev.evty {
@@ -255,6 +255,19 @@ impl<'src> ServerOutput<'src> {
 		}
 	}
 
+	fn push_refuse_malformed_packet(&mut self) {
+		if !self.config.limits_client_packets() {
+			return;
+		}
+
+		self.push_line("if typeof(buff) ~= \"buffer\" or typeof(inst) ~= \"table\" then");
+		self.indent();
+		self.push_line(&format!("refuse_packet(player, \"{MALFORMED_PACKET}\")"));
+		self.push_line("return");
+		self.dedent();
+		self.push_line("end");
+	}
+
 	fn push_refuse_oversize_packet(&mut self) {
 		if let Some(max_bytes) = self.config.max_client_packet_bytes {
 			self.push_line(&format!("if buffer.len(buff) > {max_bytes} then"));
@@ -284,6 +297,7 @@ impl<'src> ServerOutput<'src> {
 		self.push_line("reliable.OnServerEvent:Connect(function(player, buff, inst)");
 		self.indent();
 
+		self.push_refuse_malformed_packet();
 		self.push_refuse_oversize_packet();
 
 		if self.config.include_profile_labels {
@@ -691,6 +705,7 @@ impl<'src> ServerOutput<'src> {
 		));
 		self.indent();
 
+		self.push_refuse_malformed_packet();
 		self.push_refuse_oversize_packet();
 
 		if self.config.max_client_events_per_frame.is_some() {
@@ -1261,7 +1276,7 @@ impl<'src> ServerOutput<'src> {
 		let reason = self.config.casing.with("Reason", "reason", "reason");
 
 		self.push_line(&format!(
-			"{} = function({callback}: ({player}: Player, {reason}: {REFUSED_REASON_TY}) -> ()): () -> ()",
+			"{} = function({callback}: ({player}: Player, {reason}: {PACKET_REFUSED_REASON_TY}) -> ()): () -> ()",
 			self.config.packet_refused_callback_name()
 		));
 		self.indent();
@@ -1733,11 +1748,11 @@ impl<'src> ServerOutput<'src> {
 		}
 
 		self.push_line(&format!(
-			"local packet_refused_callback: ((Player, {REFUSED_REASON_TY}) -> ())? = nil"
+			"local packet_refused_callback: ((Player, {PACKET_REFUSED_REASON_TY}) -> ())? = nil"
 		));
 		self.push("\n");
 		self.push_line(&format!(
-			"local function refuse_packet(player: Player, reason: {REFUSED_REASON_TY})"
+			"local function refuse_packet(player: Player, reason: {PACKET_REFUSED_REASON_TY})"
 		));
 		self.indent();
 		self.push_line("if packet_refused_callback then");

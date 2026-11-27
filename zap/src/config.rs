@@ -7,6 +7,8 @@ use std::{
 
 pub const UNRELIABLE_ORDER_NUMTY: NumTy = NumTy::U16;
 
+pub const PACKET_REFUSED_REASON_TY: &str = "\"MalformedPacket\" | \"PacketTooLarge\" | \"TooManyEvents\"";
+
 #[derive(Debug, Clone)]
 pub enum NamespaceEntry<'src> {
 	EvDecl(EvDecl<'src>),

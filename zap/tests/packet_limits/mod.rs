@@ -27,8 +27,10 @@ funct Ask = {
 }
 "#;
 
-const LIMIT_CODE: [&str; 6] = [
+const LIMIT_CODE: [&str; 8] = [
 	"refuse_packet",
+	"MalformedPacket",
+	"typeof(buff)",
 	"packet_refused_callback",
 	"PacketRefusedCallback",
 	"events_left",
@@ -114,6 +116,79 @@ fn the_event_limit_counts_every_client_remote_per_frame() {
 	assert_eq!(count(&generated.server, "RunService.Heartbeat:Connect(function()"), 1);
 	assert_eq!(count(&generated.server, "player_events_left[player] = 128"), 1);
 	assert_eq!(count(&generated.server, "player_events_left[player] = nil"), 1);
+}
+
+const MALFORMED_GUARD: &str = "if typeof(buff) ~= \"buffer\" or typeof(inst) ~= \"table\" then";
+const CLIENT_REMOTE_HANDLER: &str = "OnServerEvent:Connect(function(player, buff, inst)";
+
+fn client_remote_handlers(server: &str) -> Vec<&str> {
+	server.split(CLIENT_REMOTE_HANDLER).skip(1).collect()
+}
+
+#[test]
+fn every_client_remote_refuses_a_malformed_packet_before_reading_it() {
+	let fixture = include_str!("../files/packet_limits.zap");
+
+	for (label, input) in [
+		("packet_limits.zap", fixture.to_string()),
+		(
+			"packet_limits.zap with profile labels",
+			format!("opt include_profile_labels = true\n{fixture}"),
+		),
+		(
+			"byte limit only",
+			format!("opt max_client_packet_bytes = 4096\n{EVENTS}"),
+		),
+		(
+			"event limit only",
+			format!("opt max_client_events_per_frame = 128\n{EVENTS}"),
+		),
+	] {
+		let code = zap::run(&input, true).code.expect("Zap did not generate any code!");
+		let handlers = client_remote_handlers(&code.server.code);
+
+		assert_eq!(
+			handlers.len(),
+			if label.starts_with("packet_limits") { 3 } else { 2 },
+			"{label}: the number of client remote handlers"
+		);
+		assert_eq!(
+			count(&code.server.code, MALFORMED_GUARD),
+			handlers.len(),
+			"{label}: every client remote handler has one guard"
+		);
+
+		for handler in handlers {
+			let guard = handler
+				.find(MALFORMED_GUARD)
+				.unwrap_or_else(|| panic!("{label}: a client remote handler has no guard:\n{handler}"));
+			let first_read = handler
+				.find("buffer.")
+				.unwrap_or_else(|| panic!("{label}: a client remote handler never reads its buffer"));
+
+			assert!(
+				guard < first_read,
+				"{label}: a client remote handler calls buffer. before refusing malformed packets:\n{handler}"
+			);
+			assert!(
+				handler[guard..].starts_with(&format!(
+					"{MALFORMED_GUARD}\n\t\trefuse_packet(player, \"MalformedPacket\")\n\t\treturn\n\tend\n"
+				)),
+				"{label}: the guard does not refuse and return:\n{handler}"
+			);
+		}
+	}
+}
+
+#[test]
+fn no_malformed_guard_is_generated_without_a_limit() {
+	let code = zap::run(include_str!("../files/many_assorted.zap"), true)
+		.code
+		.expect("Zap did not generate any code!");
+
+	assert!(!client_remote_handlers(&code.server.code).is_empty());
+	assert_eq!(count(&code.server.code, MALFORMED_GUARD), 0);
+	assert_eq!(count(&code.server.code, "MalformedPacket"), 0);
 }
 
 #[test]
