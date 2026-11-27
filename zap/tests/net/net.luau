@@ -2247,7 +2247,11 @@ local function trafficOfMixedPackets()
 		expected[pathName(entry.event.path)].Sent += 1
 		expected[pathName(entry.event.path)].SentBytes += entry.bytes
 	end
-	deliverToClients(takeToClients())
+	local sent = takeToClients()
+	if #fromServer > 0 and #sent ~= 1 then
+		fail(`mixed traffic: {#fromServer} reliable server events went in {#sent} packets, not one`)
+	end
+	deliverToClients(sent)
 	for _, entry in fromClient do
 		collect(entry.event, receiverOf(entry.event))
 	end
