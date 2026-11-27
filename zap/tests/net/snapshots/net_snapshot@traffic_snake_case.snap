@@ -31,3 +31,4 @@ traffic honked: received 0 (0 bytes), sent 10 (30 bytes)
 traffic ping: received 1 (2 bytes), sent 1 (3 bytes)
 traffic rerouted: received 0 (0 bytes), sent 10 (60 bytes)
 traffic waved: received 0 (0 bytes), sent 10 (0 bytes)
+traffic of mixed reliable packets: 1 client and 2 server events in one packet each way, each credited its own bytes

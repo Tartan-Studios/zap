@@ -2194,6 +2194,73 @@ local function trafficOfEvents()
 	end
 end
 
+local function trafficOfMixedPackets()
+	if not TRAFFIC then
+		return
+	end
+	pump()
+	local fromClient = {}
+	local fromServer = {}
+	for _, event in runnable do
+		if event.reliability ~= "Reliable" then
+			continue
+		end
+		local values = generateArgs(event.params)
+		local side, receiver = receiverOf(event)
+		if event.from == "Client" then
+			nextServerFrame()
+			member(client, event.path)[N.Fire](table.unpack(values, 1, values.n))
+			local messages = takeToServer()
+			for _, message in messages do
+				deliverToServer(message)
+			end
+			table.insert(fromClient, { event = event, values = values, bytes = wireBytes(messages) })
+		else
+			fireFromServer(member(server, event.path), "Fire", values)
+			local messages = takeToClients()
+			deliverToClients(messages)
+			table.insert(fromServer, { event = event, values = values, bytes = wireBytes(messages) })
+		end
+		collect(event, side, receiver)
+	end
+	if #fromClient < 2 and #fromServer < 2 then
+		return
+	end
+	pump()
+	local before = readTraffic()
+	local expected = zeroTraffic()
+	nextServerFrame()
+	for _, entry in fromClient do
+		member(client, entry.event.path)[N.Fire](table.unpack(entry.values, 1, entry.values.n))
+		expected[pathName(entry.event.path)].Received += 1
+		expected[pathName(entry.event.path)].ReceivedBytes += entry.bytes
+	end
+	local packets = takeToServer()
+	if #fromClient > 0 and #packets ~= 1 then
+		fail(`mixed traffic: {#fromClient} reliable client events went in {#packets} packets, not one`)
+	end
+	for _, message in packets do
+		deliverToServer(message)
+	end
+	for _, entry in fromServer do
+		fireFromServer(member(server, entry.event.path), "Fire", entry.values)
+		expected[pathName(entry.event.path)].Sent += 1
+		expected[pathName(entry.event.path)].SentBytes += entry.bytes
+	end
+	deliverToClients(takeToClients())
+	for _, entry in fromClient do
+		collect(entry.event, receiverOf(entry.event))
+	end
+	for _, entry in fromServer do
+		collect(entry.event, receiverOf(entry.event))
+	end
+	pump()
+	local wrong = expectTraffic("traffic of mixed packets", trafficChange(before, readTraffic()), expected)
+	line(
+		`traffic of mixed reliable packets: {#fromClient} client and {#fromServer} server events in one packet each way, {if #wrong == 0 then "each credited its own bytes" else "MISMATCH"}`
+	)
+end
+
 local function trafficOfRefusals()
 	if not TRAFFIC or (not CAP and not BYTES) then
 		return
@@ -2273,5 +2340,6 @@ end
 floodLimits()
 malformedPackets()
 trafficOfEvents()
+trafficOfMixedPackets()
 trafficOfRefusals()
 finish()

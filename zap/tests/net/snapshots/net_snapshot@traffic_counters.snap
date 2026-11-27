@@ -64,4 +64,5 @@ traffic Shop.Opened: received 0 (0 bytes), sent 10 (201 bytes)
 traffic Steered: received 2 (4 bytes), sent 0 (0 bytes)
 traffic Tracked: received 0 (0 bytes), sent 10 (30 bytes)
 traffic Waved: received 2 (2 bytes), sent 0 (0 bytes)
+traffic of mixed reliable packets: 3 client and 2 server events in one packet each way, each credited its own bytes
 traffic while refusing malformed, oversized and excess packets: counted 64 of 74 Waved events in one packet and 64 of 67 Steered packets in one frame
